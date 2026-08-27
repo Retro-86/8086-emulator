@@ -1,3 +1,5 @@
+use crate::memory::Memory;
+
 pub struct SharedRegisters {
     bytes: [u8; 8],
 }
@@ -142,10 +144,12 @@ pub struct Cpu {
     flags: u16,
     segment_registers: SegmentRegisters,
     instruction_pointer: u16,
+
+    memory: Memory
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(memory: Memory) -> Self {
         Self {
             shared_registers: SharedRegisters::new(),
             index_registers: IndexRegisters::new(),
@@ -153,6 +157,7 @@ impl Cpu {
             flags: 0b1000000000000000,
             segment_registers: SegmentRegisters::new(),
             instruction_pointer: 0,
+            memory
         }
     }
 }
