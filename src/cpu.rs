@@ -1,5 +1,6 @@
 use crate::memory::Memory;
 
+#[derive(Debug)]
 pub struct SharedRegisters {
     bytes: [u8; 8],
 }
@@ -18,19 +19,19 @@ impl SharedRegisters {
     }
 
     pub fn set_word(&mut self, kind: WordSharedRegisterKind, value: u16) {
-        let high_byte_index = kind as usize;
-        let low_byte_index = high_byte_index * 2;
+        let word_index = kind as usize;
+        let byte_index = word_index * 2;
 
-        self.bytes[low_byte_index] = value as u8;
-        self.bytes[low_byte_index + 1] = (value >> 8) as u8;
+        self.bytes[byte_index] = value as u8;
+        self.bytes[byte_index + 1] = (value >> 8) as u8;
     }
 
     pub fn get_word(&self, kind: WordSharedRegisterKind) -> u16 {
-        let high_byte_index = kind as usize;
-        let low_byte_index = high_byte_index * 2;
+        let word_index = kind as usize;
+        let byte_index = word_index * 2;
 
-        let low_byte = self.bytes[low_byte_index] as u16;
-        let high_byte = self.bytes[low_byte_index + 1] as u16;
+        let low_byte = self.bytes[byte_index] as u16;
+        let high_byte = self.bytes[byte_index + 1] as u16;
 
         low_byte | (high_byte << 8)
     }
@@ -41,6 +42,20 @@ pub enum WordSharedRegisterKind {
     BX = 1,
     CX = 2,
     DX = 3,
+}
+
+impl TryFrom<u8> for WordSharedRegisterKind {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::AX),
+            1 => Ok(Self::CX),
+            2 => Ok(Self::DX),
+            3 => Ok(Self::BX),
+            _ => Err(()),
+        }
+    }
 }
 
 pub enum ByteSharedRegisterKind {
@@ -54,6 +69,25 @@ pub enum ByteSharedRegisterKind {
     DH = 7,
 }
 
+impl TryFrom<u8> for ByteSharedRegisterKind {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::AL),
+            1 => Ok(Self::CL),
+            2 => Ok(Self::DL),
+            3 => Ok(Self::BL),
+            4 => Ok(Self::AH),
+            5 => Ok(Self::CH),
+            6 => Ok(Self::DH),
+            7 => Ok(Self::BH),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct IndexRegisters {
     registers: [u16; 2],
 }
@@ -77,6 +111,19 @@ pub enum IndexRegisterKind {
     DI = 1,
 }
 
+impl TryFrom<u8> for IndexRegisterKind {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::SI),
+            1 => Ok(Self::DI),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct PointerRegisters {
     registers: [u16; 2],
 }
@@ -96,10 +143,23 @@ impl PointerRegisters {
 }
 
 pub enum PointerRegisterKind {
-    BP = 0,
-    SP = 1,
+    SP = 0,
+    BP = 1,
 }
 
+impl TryFrom<u8> for PointerRegisterKind {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::SP),
+            1 => Ok(Self::BP),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct SegmentRegisters {
     registers: [u16; 4],
 }
@@ -137,6 +197,12 @@ pub enum FlagKind {
     C = 0,
 }
 
+pub enum DataUnitType {
+    BYTE,
+    WORD,
+}
+
+#[derive(Debug)]
 pub struct Cpu {
     shared_registers: SharedRegisters,
     index_registers: IndexRegisters,
@@ -144,8 +210,8 @@ pub struct Cpu {
     flags: u16,
     segment_registers: SegmentRegisters,
     instruction_pointer: u16,
-
-    memory: Memory
+    memory: Memory,
+    halted: bool,
 }
 
 impl Cpu {
@@ -154,10 +220,11 @@ impl Cpu {
             shared_registers: SharedRegisters::new(),
             index_registers: IndexRegisters::new(),
             pointer_registers: PointerRegisters::new(),
-            flags: 0b1000000000000000,
+            flags: 0b0000000000000000,
             segment_registers: SegmentRegisters::new(),
             instruction_pointer: 0,
-            memory
+            memory,
+            halted: false,
         }
     }
 }
@@ -177,5 +244,86 @@ impl Cpu {
         self.flags & (1 << flag as u16) != 0
     }
 
-    pub fn execute(&mut self, operation_code: u16) {}
+    fn physical_address(&self, segment: u16, offset: u16) -> u32 {
+        ((segment as u32) << 4) + offset as u32
+    }
+
+    fn fetch_byte(&mut self) -> u8 {
+        let code_segment = self.segment_registers.get(SegmentRegisterKind::CS);
+
+        let address = self.physical_address(code_segment, self.instruction_pointer);
+        let value = self.memory.read_byte(address);
+
+        self.instruction_pointer = self.instruction_pointer.wrapping_add(1);
+
+        value
+    }
+
+    fn fetch_word(&mut self) -> u16 {
+        let low_byte = self.fetch_byte();
+        let high_byte = self.fetch_byte();
+
+        u16::from_le_bytes([low_byte, high_byte])
+    }
+
+    pub fn step(&mut self) {
+        let operation_code = self.fetch_byte();
+
+        self.execute(operation_code);
+    }
+
+    pub fn halted(&self) -> bool {
+        self.halted
+    }
+
+    pub fn execute(&mut self, operation_code: u8) {
+        match operation_code {
+            0xB0..=0xB7 => mov(
+                self,
+                operation_code,
+                0xB0,
+                Self::fetch_byte,
+                |cpu, kind, value| cpu.shared_registers.set_byte(kind, value),
+            ),
+            0xB8..=0xBB => mov(
+                self,
+                operation_code,
+                0xB8,
+                Self::fetch_word,
+                |cpu, kind, value| cpu.shared_registers.set_word(kind, value),
+            ),
+            0xBC..=0xBD => mov(
+                self,
+                operation_code,
+                0xBC,
+                Self::fetch_word,
+                |cpu, kind, value| cpu.pointer_registers.set(kind, value),
+            ),
+            0xBE..=0xBF => mov(
+                self,
+                operation_code,
+                0xBE,
+                Self::fetch_word,
+                |cpu, kind, value| cpu.index_registers.set(kind, value),
+            ),
+            _ => {}
+        }
+    }
+}
+
+fn mov<V, K>(
+    cpu: &mut Cpu,
+    operation_code: u8,
+    base: u8,
+    fetch_function: fn(&mut Cpu) -> V,
+    set_function: fn(&mut Cpu, K, V),
+) where
+    K: TryFrom<u8>,
+    K::Error: std::fmt::Debug,
+{
+    let register_index = operation_code - base;
+    let register_kind = K::try_from(register_index).unwrap();
+
+    let value = fetch_function(cpu);
+    set_function(cpu, register_kind, value);
 }

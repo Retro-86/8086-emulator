@@ -1,13 +1,21 @@
+use std::fmt::{Debug, Formatter};
+
 static MEMORY_SIZE: usize = 1048576;
 
 pub struct Memory {
-    values: [u8; MEMORY_SIZE],
+    values: Vec<u8>,
+}
+
+impl Debug for Memory {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_fmt(format_args!("size = {}", MEMORY_SIZE))
+    }
 }
 
 impl Memory {
     pub fn new() -> Self {
         Self {
-            values: [0; MEMORY_SIZE],
+            values: vec![0; MEMORY_SIZE],
         }
     }
 
@@ -28,11 +36,11 @@ impl Memory {
 
     pub fn write_word(&mut self, address: u32, value: u16) {
         let low_byte_address = address;
-        let high_byte_adress = (address + 1);
+        let high_byte_address = address + 1;
 
         let bytes = value.to_le_bytes();
 
         self.write_byte(low_byte_address, bytes[0]);
-        self.write_byte(high_byte_adress, bytes[1]);
+        self.write_byte(high_byte_address, bytes[1]);
     }
 }

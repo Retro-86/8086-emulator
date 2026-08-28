@@ -4,8 +4,13 @@ pub mod cpu;
 pub mod memory;
 
 fn main() {
-    let memory = Memory::new();
+    let mut memory = Memory::new();
+
+    memory.write_byte(0, 0xB8);
+    memory.write_word(1, 0x1234);
+
     let mut cpu = Cpu::new(memory);
 
-    cpu.execute(0xFF);
+    cpu.step();
+    println!("{:#?}", cpu);
 }
