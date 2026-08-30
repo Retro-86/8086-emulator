@@ -1,5 +1,8 @@
 use crate::memory::Memory;
 use std::cmp::PartialEq;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use crate::bus::Bus;
 
 #[derive(Debug)]
 pub struct SharedRegisters {
@@ -253,12 +256,12 @@ pub struct Cpu {
     flags: u16,
     segment_registers: SegmentRegisters,
     instruction_pointer: u16,
-    memory: Memory,
+    bus: Bus,
     halted: bool,
 }
 
 impl Cpu {
-    pub fn new(memory: Memory) -> Self {
+    pub fn new(bus: Bus) -> Self {
         Self {
             shared_registers: SharedRegisters::new(),
             index_registers: IndexRegisters::new(),
@@ -266,7 +269,7 @@ impl Cpu {
             flags: 0b0000000000000000,
             segment_registers: SegmentRegisters::new(),
             instruction_pointer: 0,
-            memory,
+            bus,
             halted: false,
         }
     }
@@ -379,7 +382,7 @@ impl Cpu {
         let code_segment = self.segment_registers.get(SegmentRegisterKind::CS);
 
         let address = self.physical_address(code_segment, self.instruction_pointer);
-        let value = self.memory.read_byte(address);
+        let value = self.bus.read_byte_from_memory(address);
 
         self.instruction_pointer = self.instruction_pointer.wrapping_add(1);
 
@@ -424,7 +427,7 @@ impl Cpu {
                             address,
                         );
 
-                        self.memory.write_word(physical_address, value);
+                        self.bus.write_word_to_memory(physical_address, value);
                     }
                 }
             }
@@ -456,7 +459,7 @@ impl Cpu {
                 Self::fetch_word,
                 |cpu, kind, value| cpu.index_registers.set(kind, value),
             ),
-            _ => {}
+            _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }
 }

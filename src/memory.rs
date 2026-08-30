@@ -6,6 +6,12 @@ pub struct Memory {
     values: Vec<u8>,
 }
 
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Debug for Memory {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_fmt(format_args!("size = {}", MEMORY_SIZE))
