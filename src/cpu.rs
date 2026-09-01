@@ -1,6 +1,7 @@
 use crate::bus::Bus;
 use std::cmp::PartialEq;
 use std::hash::SipHasher;
+use std::ptr::read;
 
 #[derive(Debug)]
 pub struct SharedRegisters {
@@ -490,6 +491,11 @@ impl Cpu {
     }
 
     fn execute(&mut self, operation_code: u8) {
+
+        if self.halted {
+            return;
+        }
+
         match operation_code {
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
@@ -525,9 +531,14 @@ impl Cpu {
                 Self::fetch_word,
                 |cpu, kind, value| cpu.index_registers.set(kind, value),
             ),
+            0xF4 => halt(self),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }
+}
+
+fn halt(cpu: &mut Cpu) {
+    cpu.halted = true;
 }
 
 fn mov_from_immediate_to_register<V, K>(

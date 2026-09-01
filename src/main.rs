@@ -14,6 +14,7 @@ fn main() {
     memory.write_word(1, 0x1234);
     memory.write_byte(3, 0xB9);
     memory.write_word(4, 0x44ff);
+    memory.write_byte(6, 0xF4);
     
     let ports = Ports::new();
     
