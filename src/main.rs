@@ -12,17 +12,20 @@ fn main() {
 
     memory.write_byte(0, 0xB8);
     memory.write_word(1, 0x1234);
-    memory.write_byte(3, 0xB9);
-    memory.write_word(4, 0x44ff);
-    memory.write_byte(6, 0xF4);
-    
+    memory.write_byte(3, 0x50);
+    memory.write_byte(4, 0x5A);
+    memory.write_byte(5, 0x89);
+    memory.write_byte(6, 0x16);
+    memory.write_word(7, 0x5678);
+    memory.write_byte(9, 0xF4);
+
     let ports = Ports::new();
     
     let bus = Bus::new(memory, ports);
 
     let mut cpu = Cpu::new(bus);
 
-    for _ in 0..=10 {
+    for _ in 0..=100 {
         cpu.step();
     }
     println!("{:#?}", cpu);

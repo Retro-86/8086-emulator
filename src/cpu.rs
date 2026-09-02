@@ -1,7 +1,5 @@
 use crate::bus::Bus;
 use std::cmp::PartialEq;
-use std::hash::SipHasher;
-use std::ptr::read;
 
 #[derive(Debug)]
 pub struct SharedRegisters {
@@ -491,12 +489,20 @@ impl Cpu {
     }
 
     fn execute(&mut self, operation_code: u8) {
-
         if self.halted {
             return;
         }
 
         match operation_code {
+            0x06 => push_from_segment_register(self, SegmentRegisterKind::ES),
+            0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
+            0x16 => push_from_segment_register(self, SegmentRegisterKind::SS),
+            0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
+            0x0E => push_from_segment_register(self, SegmentRegisterKind::CS),
+            0x1E => push_from_segment_register(self, SegmentRegisterKind::DS),
+            0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
+            0x50..=0x57 => push_from_word_register(self, 0x50, operation_code),
+            0x58..=0x5F => pop_from_word_register(self, 0x58, operation_code),
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
             0x8A => mov_operand_to_register(self, OperandSize::Byte),
@@ -537,8 +543,58 @@ impl Cpu {
     }
 }
 
-fn halt(cpu: &mut Cpu) {
-    cpu.halted = true;
+fn push(cpu: &mut Cpu, value: u16) {
+    let stack_pointer_value = cpu
+        .pointer_registers
+        .get(PointerRegisterKind::SP)
+        .wrapping_sub(2);
+
+    cpu.pointer_registers
+        .set(PointerRegisterKind::SP, stack_pointer_value);
+
+    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
+    let physical_address = cpu.physical_address(segment_register, stack_pointer_value);
+
+    cpu.bus.write_word_to_memory(physical_address, value);
+}
+
+fn push_from_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
+    let register_value = cpu.segment_registers.get(register_kind);
+    push(cpu, register_value);
+}
+
+fn push_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+    let register_index = operation_code - base;
+    let register_value = cpu.get_word_register(register_index);
+
+    push(cpu, register_value);
+}
+
+fn pop_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
+    let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
+    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
+
+    let address = cpu.physical_address(segment_register, stack_pointer);
+    let temporary_value = cpu.bus.read_word_from_memory(address);
+
+    cpu.pointer_registers
+        .set(PointerRegisterKind::SP, stack_pointer.wrapping_add(2));
+
+    cpu.segment_registers.set(register_kind, temporary_value);
+}
+
+fn pop_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+    let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
+    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
+
+    let address = cpu.physical_address(segment_register, stack_pointer);
+    let temporary_value = cpu.bus.read_word_from_memory(address);
+
+    cpu.pointer_registers
+        .set(PointerRegisterKind::SP, stack_pointer.wrapping_add(2));
+
+    let register_index = operation_code - base;
+    cpu.set_word_register(register_index, temporary_value);
 }
 
 fn mov_from_immediate_to_register<V, K>(
@@ -599,4 +655,8 @@ fn mov_operand_to_segment_register(cpu: &mut Cpu) {
     if let OperandValue::Word(value) = value {
         cpu.segment_registers.set(segment_register_kind, value);
     }
+}
+
+fn halt(cpu: &mut Cpu) {
+    cpu.halted = true;
 }
