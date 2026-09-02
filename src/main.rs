@@ -19,6 +19,8 @@ fn main() {
     memory.write_word(7, 0x5678);
     memory.write_byte(9, 0xF4);
 
+    println!("{:x}", memory.read_word(7));
+
     let ports = Ports::new();
     
     let bus = Bus::new(memory, ports);

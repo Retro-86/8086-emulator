@@ -179,6 +179,7 @@ impl SegmentRegisters {
     }
 }
 
+#[derive(PartialEq)]
 pub enum SegmentRegisterKind {
     CS = 0,
     DS = 1,
@@ -479,6 +480,10 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        if self.halted {
+            return;
+        }
+
         let operation_code = self.fetch_byte();
 
         self.execute(operation_code);
@@ -489,10 +494,6 @@ impl Cpu {
     }
 
     fn execute(&mut self, operation_code: u8) {
-        if self.halted {
-            return;
-        }
-
         match operation_code {
             0x06 => push_from_segment_register(self, SegmentRegisterKind::ES),
             0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
@@ -565,7 +566,11 @@ fn push_from_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind)
 
 fn push_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     let register_index = operation_code - base;
-    let register_value = cpu.get_word_register(register_index);
+    let mut register_value = cpu.get_word_register(register_index);
+
+    if operation_code == 0x54 {
+        register_value = register_value.wrapping_add(2);
+    }
 
     push(cpu, register_value);
 }
@@ -652,7 +657,7 @@ fn mov_operand_to_segment_register(cpu: &mut Cpu) {
 
     let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
 
-    if let OperandValue::Word(value) = value {
+    if segment_register_kind != SegmentRegisterKind::CS && let OperandValue::Word(value) = value {
         cpu.segment_registers.set(segment_register_kind, value);
     }
 }
