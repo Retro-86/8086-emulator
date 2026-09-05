@@ -510,6 +510,20 @@ impl Cpu {
             0x8B => mov_operand_to_register(self, OperandSize::Word),
             0x8C => mov_segment_register_to_operand(self),
             0x8E => mov_operand_to_segment_register(self),
+            0xA0 => {
+                let register_kind = SegmentRegisterKind::DS;
+                mov_memory_to_register(self, register_kind, OperandSize::Byte);
+            }
+            0xA1 => {
+                let register_kind = SegmentRegisterKind::DS;
+                mov_memory_to_register(self, register_kind, OperandSize::Word);
+            }
+            0xA2 => {
+                mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Byte)
+            }
+            0xA3 => {
+                mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Word)
+            }
             0xB0..=0xB7 => mov_from_immediate_to_register(
                 self,
                 operation_code,
@@ -542,6 +556,22 @@ impl Cpu {
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }
+
+    pub fn get_registers(
+        &self,
+    ) -> (
+        &SharedRegisters,
+        &IndexRegisters,
+        &PointerRegisters,
+        &SegmentRegisters,
+    ) {
+        (
+            &self.shared_registers,
+            &self.index_registers,
+            &self.pointer_registers,
+            &self.segment_registers,
+        )
+    }
 }
 
 fn push(cpu: &mut Cpu, value: u16) {
@@ -569,7 +599,7 @@ fn push_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     let mut register_value = cpu.get_word_register(register_index);
 
     if operation_code == 0x54 {
-        register_value = register_value.wrapping_add(2);
+        register_value = register_value.wrapping_sub(2);
     }
 
     push(cpu, register_value);
@@ -657,8 +687,52 @@ fn mov_operand_to_segment_register(cpu: &mut Cpu) {
 
     let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
 
-    if segment_register_kind != SegmentRegisterKind::CS && let OperandValue::Word(value) = value {
+    if segment_register_kind != SegmentRegisterKind::CS
+        && let OperandValue::Word(value) = value
+    {
         cpu.segment_registers.set(segment_register_kind, value);
+    }
+}
+
+fn mov_memory_to_register(
+    cpu: &mut Cpu,
+    segment_register_kind: SegmentRegisterKind,
+    size: OperandSize
+) {
+    let register = cpu.segment_registers.get(segment_register_kind);
+    let offset = cpu.fetch_word();
+    let address = cpu.physical_address(register, offset);
+
+    match size {
+        OperandSize::Byte => {
+            let value = cpu.bus.read_byte_from_memory(address);
+            cpu.shared_registers.set_byte(ByteSharedRegisterKind::AL, value);
+        },
+        OperandSize::Word => {
+            let value = cpu.bus.read_word_from_memory(address);
+            cpu.shared_registers.set_word(WordSharedRegisterKind::AX, value);
+        },
+    };
+}
+
+fn mov_register_to_memory(
+    cpu: &mut Cpu,
+    segment_register_kind: SegmentRegisterKind,
+    size: OperandSize,
+) {
+    let segment = cpu.segment_registers.get(segment_register_kind);
+    let offset = cpu.fetch_word();
+    let address = cpu.physical_address(segment, offset);
+
+    match size {
+        OperandSize::Byte => {
+            let value = cpu.shared_registers.get_byte(ByteSharedRegisterKind::AL);
+            cpu.bus.write_byte_to_memory(address, value);
+        }
+        OperandSize::Word => {
+            let value = cpu.shared_registers.get_word(WordSharedRegisterKind::AX);
+            cpu.bus.write_word_to_memory(address, value);
+        }
     }
 }
 

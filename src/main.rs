@@ -27,8 +27,8 @@ fn main() {
 
     let mut cpu = Cpu::new(bus);
 
-    for _ in 0..=100 {
+    for _ in 0..=10 {
         cpu.step();
+        println!("{:#?}", cpu.get_registers());
     }
-    println!("{:#?}", cpu);
 }
