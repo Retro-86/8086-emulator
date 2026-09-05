@@ -495,15 +495,15 @@ impl Cpu {
 
     fn execute(&mut self, operation_code: u8) {
         match operation_code {
-            0x06 => push_from_segment_register(self, SegmentRegisterKind::ES),
+            0x06 => push_segment_register(self, SegmentRegisterKind::ES),
             0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
-            0x16 => push_from_segment_register(self, SegmentRegisterKind::SS),
+            0x16 => push_segment_register(self, SegmentRegisterKind::SS),
             0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
-            0x0E => push_from_segment_register(self, SegmentRegisterKind::CS),
-            0x1E => push_from_segment_register(self, SegmentRegisterKind::DS),
+            0x0E => push_segment_register(self, SegmentRegisterKind::CS),
+            0x1E => push_segment_register(self, SegmentRegisterKind::DS),
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
-            0x50..=0x57 => push_from_word_register(self, 0x50, operation_code),
-            0x58..=0x5F => pop_from_word_register(self, 0x58, operation_code),
+            0x50..=0x57 => push_word_register(self, 0x50, operation_code),
+            0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
             0x8A => mov_operand_to_register(self, OperandSize::Byte),
@@ -518,40 +518,38 @@ impl Cpu {
                 let register_kind = SegmentRegisterKind::DS;
                 mov_memory_to_register(self, register_kind, OperandSize::Word);
             }
-            0xA2 => {
-                mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Byte)
-            }
-            0xA3 => {
-                mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Word)
-            }
-            0xB0..=0xB7 => mov_from_immediate_to_register(
+            0xA2 => mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Byte),
+            0xA3 => mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Word),
+            0xB0..=0xB7 => mov_immediate_to_register(
                 self,
                 operation_code,
                 0xB0,
                 Self::fetch_byte,
                 |cpu, kind, value| cpu.shared_registers.set_byte(kind, value),
             ),
-            0xB8..=0xBB => mov_from_immediate_to_register(
+            0xB8..=0xBB => mov_immediate_to_register(
                 self,
                 operation_code,
                 0xB8,
                 Self::fetch_word,
                 |cpu, kind, value| cpu.shared_registers.set_word(kind, value),
             ),
-            0xBC..=0xBD => mov_from_immediate_to_register(
+            0xBC..=0xBD => mov_immediate_to_register(
                 self,
                 operation_code,
                 0xBC,
                 Self::fetch_word,
                 |cpu, kind, value| cpu.pointer_registers.set(kind, value),
             ),
-            0xBE..=0xBF => mov_from_immediate_to_register(
+            0xBE..=0xBF => mov_immediate_to_register(
                 self,
                 operation_code,
                 0xBE,
                 Self::fetch_word,
                 |cpu, kind, value| cpu.index_registers.set(kind, value),
             ),
+            0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
+            0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
             0xF4 => halt(self),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
@@ -589,12 +587,12 @@ fn push(cpu: &mut Cpu, value: u16) {
     cpu.bus.write_word_to_memory(physical_address, value);
 }
 
-fn push_from_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
+fn push_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
     let register_value = cpu.segment_registers.get(register_kind);
     push(cpu, register_value);
 }
 
-fn push_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+fn push_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     let register_index = operation_code - base;
     let mut register_value = cpu.get_word_register(register_index);
 
@@ -618,7 +616,7 @@ fn pop_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
     cpu.segment_registers.set(register_kind, temporary_value);
 }
 
-fn pop_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+fn pop_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
     let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
 
@@ -632,7 +630,7 @@ fn pop_from_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     cpu.set_word_register(register_index, temporary_value);
 }
 
-fn mov_from_immediate_to_register<V, K>(
+fn mov_immediate_to_register<V, K>(
     cpu: &mut Cpu,
     operation_code: u8,
     base: u8,
@@ -697,7 +695,7 @@ fn mov_operand_to_segment_register(cpu: &mut Cpu) {
 fn mov_memory_to_register(
     cpu: &mut Cpu,
     segment_register_kind: SegmentRegisterKind,
-    size: OperandSize
+    size: OperandSize,
 ) {
     let register = cpu.segment_registers.get(segment_register_kind);
     let offset = cpu.fetch_word();
@@ -706,12 +704,14 @@ fn mov_memory_to_register(
     match size {
         OperandSize::Byte => {
             let value = cpu.bus.read_byte_from_memory(address);
-            cpu.shared_registers.set_byte(ByteSharedRegisterKind::AL, value);
-        },
+            cpu.shared_registers
+                .set_byte(ByteSharedRegisterKind::AL, value);
+        }
         OperandSize::Word => {
             let value = cpu.bus.read_word_from_memory(address);
-            cpu.shared_registers.set_word(WordSharedRegisterKind::AX, value);
-        },
+            cpu.shared_registers
+                .set_word(WordSharedRegisterKind::AX, value);
+        }
     };
 }
 
@@ -734,6 +734,18 @@ fn mov_register_to_memory(
             cpu.bus.write_word_to_memory(address, value);
         }
     }
+}
+
+fn mov_immediate_to_operand(cpu: &mut Cpu, operand_size: OperandSize) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+    let operand = addressing_mode.operand(cpu);
+    
+    let value = match operand_size {
+        OperandSize::Byte => OperandValue::Byte(cpu.fetch_byte()),
+        OperandSize::Word => OperandValue::Word(cpu.fetch_word()),
+    };
+    
+    operand.write(cpu, value);
 }
 
 fn halt(cpu: &mut Cpu) {
