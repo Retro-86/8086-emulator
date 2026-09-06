@@ -1,5 +1,15 @@
+pub mod operation;
+
 use crate::bus::Bus;
+use crate::cpu::operation::mov::{
+    mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
+    mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
+    mov_register_to_operand, mov_segment_register_to_operand,
+};
+use crate::cpu::operation::pop::{pop_segment_register, pop_word_register};
+use crate::cpu::operation::push::{push_segment_register, push_word_register};
 use std::cmp::PartialEq;
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct SharedRegisters {
@@ -179,7 +189,7 @@ impl SegmentRegisters {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SegmentRegisterKind {
     CS = 0,
     DS = 1,
@@ -322,6 +332,35 @@ pub struct Cpu {
     instruction_pointer: u16,
     bus: Bus,
     halted: bool,
+    segment_register_override: SegmentRegisterOverride,
+}
+
+#[derive(Debug)]
+struct SegmentRegisterOverride {
+    register_kind: Option<SegmentRegisterKind>,
+}
+
+impl SegmentRegisterOverride {
+    fn new() -> Self {
+        Self {
+            register_kind: None,
+        }
+    }
+
+    fn set(&mut self, kind: SegmentRegisterKind) {
+        self.register_kind = Some(kind);
+    }
+
+    fn get<F>(&mut self, default_kind: F) -> SegmentRegisterKind
+    where
+        F: FnOnce() -> SegmentRegisterKind,
+    {
+        self.register_kind.unwrap_or_else(default_kind)
+    }
+
+    fn reset(&mut self) {
+        self.register_kind = None;
+    }
 }
 
 impl Cpu {
@@ -335,6 +374,7 @@ impl Cpu {
             instruction_pointer: 0,
             bus,
             halted: false,
+            segment_register_override: SegmentRegisterOverride::new(),
         }
     }
 }
@@ -361,10 +401,12 @@ impl Cpu {
     fn physical_address_from_addressing_mode(&mut self, addressing_mode: &AddressingMode) -> u32 {
         let address = self.effective_address(addressing_mode);
 
-        let segment_register_kind = addressing_mode.get_segment_register_kind();
-        let offset = self.segment_registers.get(segment_register_kind);
+        let segment_register_kind = self
+            .segment_register_override
+            .get(|| addressing_mode.get_segment_register_kind());
+        let register_value = self.segment_registers.get(segment_register_kind);
 
-        self.physical_address(offset, address)
+        self.physical_address(register_value, address)
     }
 
     fn effective_address(&mut self, addressing_mode: &AddressingMode) -> u16 {
@@ -484,9 +526,22 @@ impl Cpu {
             return;
         }
 
-        let operation_code = self.fetch_byte();
+        loop {
+            let operation_code = self.fetch_byte();
 
-        self.execute(operation_code);
+            match operation_code {
+                0x26 => self.segment_register_override.set(SegmentRegisterKind::ES),
+                0x2E => self.segment_register_override.set(SegmentRegisterKind::CS),
+                0x36 => self.segment_register_override.set(SegmentRegisterKind::SS),
+                0x3E => self.segment_register_override.set(SegmentRegisterKind::DS),
+                _ => {
+                    self.execute(operation_code);
+                    break;
+                }
+            }
+        }
+
+        self.segment_register_override.reset();
     }
 
     pub fn halted(&self) -> bool {
@@ -500,6 +555,7 @@ impl Cpu {
             0x16 => push_segment_register(self, SegmentRegisterKind::SS),
             0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
             0x0E => push_segment_register(self, SegmentRegisterKind::CS),
+            0x0F => pop_segment_register(self, SegmentRegisterKind::CS),
             0x1E => push_segment_register(self, SegmentRegisterKind::DS),
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
@@ -510,16 +566,10 @@ impl Cpu {
             0x8B => mov_operand_to_register(self, OperandSize::Word),
             0x8C => mov_segment_register_to_operand(self),
             0x8E => mov_operand_to_segment_register(self),
-            0xA0 => {
-                let register_kind = SegmentRegisterKind::DS;
-                mov_memory_to_register(self, register_kind, OperandSize::Byte);
-            }
-            0xA1 => {
-                let register_kind = SegmentRegisterKind::DS;
-                mov_memory_to_register(self, register_kind, OperandSize::Word);
-            }
-            0xA2 => mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Byte),
-            0xA3 => mov_register_to_memory(self, SegmentRegisterKind::DS, OperandSize::Word),
+            0xA0 => mov_memory_to_register(self, OperandSize::Byte),
+            0xA1 => mov_memory_to_register(self, OperandSize::Word),
+            0xA2 => mov_register_to_memory(self, OperandSize::Byte),
+            0xA3 => mov_register_to_memory(self, OperandSize::Word),
             0xB0..=0xB7 => mov_immediate_to_register(
                 self,
                 operation_code,
@@ -570,182 +620,6 @@ impl Cpu {
             &self.segment_registers,
         )
     }
-}
-
-fn push(cpu: &mut Cpu, value: u16) {
-    let stack_pointer_value = cpu
-        .pointer_registers
-        .get(PointerRegisterKind::SP)
-        .wrapping_sub(2);
-
-    cpu.pointer_registers
-        .set(PointerRegisterKind::SP, stack_pointer_value);
-
-    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
-    let physical_address = cpu.physical_address(segment_register, stack_pointer_value);
-
-    cpu.bus.write_word_to_memory(physical_address, value);
-}
-
-fn push_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
-    let register_value = cpu.segment_registers.get(register_kind);
-    push(cpu, register_value);
-}
-
-fn push_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
-    let register_index = operation_code - base;
-    let mut register_value = cpu.get_word_register(register_index);
-
-    if operation_code == 0x54 {
-        register_value = register_value.wrapping_sub(2);
-    }
-
-    push(cpu, register_value);
-}
-
-fn pop_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
-    let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
-    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
-
-    let address = cpu.physical_address(segment_register, stack_pointer);
-    let temporary_value = cpu.bus.read_word_from_memory(address);
-
-    cpu.pointer_registers
-        .set(PointerRegisterKind::SP, stack_pointer.wrapping_add(2));
-
-    cpu.segment_registers.set(register_kind, temporary_value);
-}
-
-fn pop_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
-    let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
-    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
-
-    let address = cpu.physical_address(segment_register, stack_pointer);
-    let temporary_value = cpu.bus.read_word_from_memory(address);
-
-    cpu.pointer_registers
-        .set(PointerRegisterKind::SP, stack_pointer.wrapping_add(2));
-
-    let register_index = operation_code - base;
-    cpu.set_word_register(register_index, temporary_value);
-}
-
-fn mov_immediate_to_register<V, K>(
-    cpu: &mut Cpu,
-    operation_code: u8,
-    base: u8,
-    fetch_function: fn(&mut Cpu) -> V,
-    set_register_function: fn(&mut Cpu, K, V),
-) where
-    K: TryFrom<u8>,
-    K::Error: std::fmt::Debug,
-{
-    let register_index = operation_code - base;
-    let register_kind = K::try_from(register_index).unwrap();
-
-    let value = fetch_function(cpu);
-    set_register_function(cpu, register_kind, value);
-}
-
-fn mov_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
-
-    let register = Operand::Register(addressing_mode.register);
-    let operand = addressing_mode.operand(cpu);
-
-    let value = register.read(cpu, size);
-    operand.write(cpu, value);
-}
-
-fn mov_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
-
-    let operand = addressing_mode.operand(cpu);
-    let register = Operand::Register(addressing_mode.register);
-
-    let value = operand.read(cpu, size);
-    register.write(cpu, value);
-}
-
-fn mov_segment_register_to_operand(cpu: &mut Cpu) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
-
-    let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
-    let value = OperandValue::Word(cpu.segment_registers.get(segment_register_kind));
-
-    let operand = addressing_mode.operand(cpu);
-    operand.write(cpu, value);
-}
-
-fn mov_operand_to_segment_register(cpu: &mut Cpu) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
-
-    let operand = addressing_mode.operand(cpu);
-    let value = operand.read(cpu, OperandSize::Word);
-
-    let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
-
-    if segment_register_kind != SegmentRegisterKind::CS
-        && let OperandValue::Word(value) = value
-    {
-        cpu.segment_registers.set(segment_register_kind, value);
-    }
-}
-
-fn mov_memory_to_register(
-    cpu: &mut Cpu,
-    segment_register_kind: SegmentRegisterKind,
-    size: OperandSize,
-) {
-    let register = cpu.segment_registers.get(segment_register_kind);
-    let offset = cpu.fetch_word();
-    let address = cpu.physical_address(register, offset);
-
-    match size {
-        OperandSize::Byte => {
-            let value = cpu.bus.read_byte_from_memory(address);
-            cpu.shared_registers
-                .set_byte(ByteSharedRegisterKind::AL, value);
-        }
-        OperandSize::Word => {
-            let value = cpu.bus.read_word_from_memory(address);
-            cpu.shared_registers
-                .set_word(WordSharedRegisterKind::AX, value);
-        }
-    };
-}
-
-fn mov_register_to_memory(
-    cpu: &mut Cpu,
-    segment_register_kind: SegmentRegisterKind,
-    size: OperandSize,
-) {
-    let segment = cpu.segment_registers.get(segment_register_kind);
-    let offset = cpu.fetch_word();
-    let address = cpu.physical_address(segment, offset);
-
-    match size {
-        OperandSize::Byte => {
-            let value = cpu.shared_registers.get_byte(ByteSharedRegisterKind::AL);
-            cpu.bus.write_byte_to_memory(address, value);
-        }
-        OperandSize::Word => {
-            let value = cpu.shared_registers.get_word(WordSharedRegisterKind::AX);
-            cpu.bus.write_word_to_memory(address, value);
-        }
-    }
-}
-
-fn mov_immediate_to_operand(cpu: &mut Cpu, operand_size: OperandSize) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
-    let operand = addressing_mode.operand(cpu);
-    
-    let value = match operand_size {
-        OperandSize::Byte => OperandValue::Byte(cpu.fetch_byte()),
-        OperandSize::Word => OperandValue::Word(cpu.fetch_word()),
-    };
-    
-    operand.write(cpu, value);
 }
 
 fn halt(cpu: &mut Cpu) {
