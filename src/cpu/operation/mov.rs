@@ -1,7 +1,5 @@
-use crate::cpu::{
-    AddressingMode, ByteSharedRegisterKind, Cpu, Operand, OperandSize, OperandValue,
-    SegmentRegisterKind, WordSharedRegisterKind,
-};
+use crate::cpu::operand::{Operand, OperandSize, OperandValue};
+use crate::cpu::{AddressingMode, ByteSharedRegisterKind, Cpu, SegmentRegisterKind, WordSharedRegisterKind};
 
 pub fn mov_immediate_to_register<V, K>(
     cpu: &mut Cpu,
@@ -25,7 +23,7 @@ pub fn mov_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
 
     let register = Operand::Register(addressing_mode.register);
     let operand = addressing_mode.operand(cpu);
-
+    
     let value = register.read(cpu, size);
     operand.write(cpu, value);
 }
@@ -58,10 +56,8 @@ pub fn mov_operand_to_segment_register(cpu: &mut Cpu) {
 
     let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
 
-    if segment_register_kind != SegmentRegisterKind::CS
-        && let OperandValue::Word(value) = value
-    {
-        cpu.segment_registers.set(segment_register_kind, value);
+    if segment_register_kind != SegmentRegisterKind::CS {
+        cpu.segment_registers.set(segment_register_kind, value.as_word());
     }
 }
 
@@ -69,8 +65,10 @@ pub fn mov_memory_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register_kind = cpu
         .segment_register_override
         .get(|| SegmentRegisterKind::DS);
+
     let register_value = cpu.segment_registers.get(register_kind);
     let offset = cpu.fetch_word();
+
     let address = cpu.physical_address(register_value, offset);
 
     match size {
@@ -91,8 +89,10 @@ pub fn mov_register_to_memory(cpu: &mut Cpu, size: OperandSize) {
     let register_kind = cpu
         .segment_register_override
         .get(|| SegmentRegisterKind::DS);
+
     let register_value = cpu.segment_registers.get(register_kind);
     let offset = cpu.fetch_word();
+
     let address = cpu.physical_address(register_value, offset);
 
     match size {

@@ -1,6 +1,8 @@
+pub mod operand;
 pub mod operation;
 
 use crate::bus::Bus;
+use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
@@ -10,6 +12,19 @@ use crate::cpu::operation::pop::{pop_segment_register, pop_word_register};
 use crate::cpu::operation::push::{push_segment_register, push_word_register};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use std::ops::BitAnd;
+use crate::cpu::operation::add::{add_immediate_to_operand, add_immediate_to_register, add_operand_to_register, add_register_to_operand};
+
+static PARITY_TABLE: [u8; 256] = [
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+];
 
 #[derive(Debug)]
 pub struct SharedRegisters {
@@ -277,51 +292,6 @@ impl AddressingMode {
     }
 }
 
-enum OperandValue {
-    Byte(u8),
-    Word(u16),
-}
-
-enum OperandSize {
-    Byte,
-    Word,
-}
-
-enum Operand {
-    Memory(u32),
-    Register(u8),
-}
-
-impl Operand {
-    fn read(self, cpu: &mut Cpu, size: OperandSize) -> OperandValue {
-        match self {
-            Operand::Register(register) => match size {
-                OperandSize::Byte => OperandValue::Byte(cpu.get_byte_register(register)),
-                OperandSize::Word => OperandValue::Word(cpu.get_word_register(register)),
-            },
-
-            Operand::Memory(address) => match size {
-                OperandSize::Byte => OperandValue::Byte(cpu.bus.read_byte_from_memory(address)),
-                OperandSize::Word => OperandValue::Word(cpu.bus.read_word_from_memory(address)),
-            },
-        }
-    }
-
-    fn write(self, cpu: &mut Cpu, value: OperandValue) {
-        match self {
-            Operand::Register(register) => match value {
-                OperandValue::Byte(value) => cpu.set_byte_register(register, value),
-                OperandValue::Word(value) => cpu.set_word_register(register, value),
-            },
-
-            Operand::Memory(address) => match value {
-                OperandValue::Byte(value) => cpu.bus.write_byte_to_memory(address, value),
-                OperandValue::Word(value) => cpu.bus.write_word_to_memory(address, value),
-            },
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Cpu {
     shared_registers: SharedRegisters,
@@ -550,6 +520,12 @@ impl Cpu {
 
     fn execute(&mut self, operation_code: u8) {
         match operation_code {
+            0x00 => add_register_to_operand(self, OperandSize::Byte),
+            0x01 => add_register_to_operand(self, OperandSize::Word),
+            0x02 => add_operand_to_register(self, OperandSize::Byte),
+            0x03 => add_operand_to_register(self, OperandSize::Word),
+            0x04 => add_immediate_to_register(self, OperandSize::Byte),
+            0x05 => add_immediate_to_register(self, OperandSize::Word),
             0x06 => push_segment_register(self, SegmentRegisterKind::ES),
             0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
             0x16 => push_segment_register(self, SegmentRegisterKind::SS),
@@ -560,6 +536,9 @@ impl Cpu {
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
+            0x80 => add_immediate_to_operand(self, OperandSize::Byte),
+            0x81 => add_immediate_to_operand(self, OperandSize::Word),
+            0x83 => add_immediate_to_operand(self, OperandSize::Word),
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
             0x8A => mov_operand_to_register(self, OperandSize::Byte),

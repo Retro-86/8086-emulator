@@ -1,10 +1,11 @@
-use crate::{cpu::Cpu, memory::Memory};
 use crate::bus::Bus;
+use crate::cpu::Cpu;
+use crate::memory::Memory;
 use crate::ports::Ports;
 
+pub mod bus;
 pub mod cpu;
 pub mod memory;
-pub mod bus;
 pub mod ports;
 
 fn main() {
@@ -22,7 +23,7 @@ fn main() {
     println!("{:x}", memory.read_word(7));
 
     let ports = Ports::new();
-    
+
     let bus = Bus::new(memory, ports);
 
     let mut cpu = Cpu::new(bus);

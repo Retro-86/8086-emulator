@@ -20,7 +20,7 @@ impl Bus {
         }
     }
 
-    pub fn read_byte_from_port(&mut self, port: u16) -> u8 {
+    pub fn read_byte_from_port(&self, port: u16) -> u8 {
         self.ports.read_byte(port)
     }
 
@@ -28,11 +28,11 @@ impl Bus {
         self.memory.read_byte(address)
     }
 
-    pub fn read_word_from_port(&mut self, port: u16) -> u16 {
+    pub fn read_word_from_port(&self, port: u16) -> u16 {
         todo!()
     }
 
-    pub fn read_word_from_memory(&mut self, address: u32) -> u16 {
+    pub fn read_word_from_memory(&self, address: u32) -> u16 {
         self.memory.read_word(address)
     }
 
