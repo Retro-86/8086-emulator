@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, BitOr, Sub};
 use crate::cpu::Cpu;
 
 #[derive(Copy, Clone)]
@@ -91,3 +91,4 @@ macro_rules! impl_operand_op {
 
 impl_operand_op!(Add, add, wrapping_add);
 impl_operand_op!(Sub, sub, wrapping_sub);
+impl_operand_op!(BitOr, bitor, bitor);

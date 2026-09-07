@@ -3,6 +3,9 @@ pub mod operation;
 
 use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
+use crate::cpu::operation::add::{
+    add_immediate_to_register, add_operand_to_register, add_register_to_operand,
+};
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
@@ -12,8 +15,7 @@ use crate::cpu::operation::pop::{pop_segment_register, pop_word_register};
 use crate::cpu::operation::push::{push_segment_register, push_word_register};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
-use std::ops::BitAnd;
-use crate::cpu::operation::add::{add_immediate_to_operand, add_immediate_to_register, add_operand_to_register, add_register_to_operand};
+use std::ops::BitOr;
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -528,6 +530,12 @@ impl Cpu {
             0x05 => add_immediate_to_register(self, OperandSize::Word),
             0x06 => push_segment_register(self, SegmentRegisterKind::ES),
             0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
+            0x08 => or_operand_register(self, OperandSize::Byte),
+            0x09 => or_operand_register(self, OperandSize::Word),
+            0x0A => or_register_operand(self, OperandSize::Byte),
+            0x0B => or_register_operand(self, OperandSize::Word),
+            0x0C => or_register_immediate(self, OperandSize::Byte),
+            0x0D => or_register_immediate(self, OperandSize::Word),
             0x16 => push_segment_register(self, SegmentRegisterKind::SS),
             0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
             0x0E => push_segment_register(self, SegmentRegisterKind::CS),
@@ -536,9 +544,6 @@ impl Cpu {
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
-            0x80 => add_immediate_to_operand(self, OperandSize::Byte),
-            0x81 => add_immediate_to_operand(self, OperandSize::Word),
-            0x83 => add_immediate_to_operand(self, OperandSize::Word),
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
             0x8A => mov_operand_to_register(self, OperandSize::Byte),
@@ -599,6 +604,95 @@ impl Cpu {
             &self.segment_registers,
         )
     }
+}
+
+fn or_register_immediate(cpu: &mut Cpu, size: OperandSize) {
+    let (register_value, immediate_value) = match size {
+        OperandSize::Byte => {
+            let register_value =
+                OperandValue::Byte(cpu.shared_registers.get_byte(ByteSharedRegisterKind::AL));
+
+            let immediate_value = OperandValue::Byte(cpu.fetch_byte());
+            (register_value, immediate_value)
+        }
+        OperandSize::Word => {
+            let register_value =
+                OperandValue::Word(cpu.shared_registers.get_word(WordSharedRegisterKind::AX));
+
+            let immediate_value = OperandValue::Word(cpu.fetch_word());
+            (register_value, immediate_value)
+        }
+    };
+
+    let result = immediate_value | register_value;
+
+    update_or_flags(cpu, result);
+
+    match result {
+        OperandValue::Byte(value) => {
+            cpu.shared_registers
+                .set_byte(ByteSharedRegisterKind::AL, value);
+        }
+        OperandValue::Word(value) => {
+            cpu.shared_registers
+                .set_word(WordSharedRegisterKind::AX, value);
+        }
+    }
+}
+
+fn or_operand_register(cpu: &mut Cpu, size: OperandSize) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+
+    let operand = addressing_mode.operand(cpu);
+    let register = Operand::Register(addressing_mode.register);
+
+    let operand_value = operand.read(cpu, size);
+    let register_value = register.read(cpu, size);
+
+    let result = operand_value | register_value;
+
+    update_or_flags(cpu, result);
+
+    operand.write(cpu, result)
+}
+
+fn or_register_operand(cpu: &mut Cpu, size: OperandSize) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+
+    let operand = addressing_mode.operand(cpu);
+    let register = Operand::Register(addressing_mode.register);
+
+    let operand_value = operand.read(cpu, size);
+    let register_value = register.read(cpu, size);
+
+    let result = register_value | operand_value;
+
+    update_or_flags(cpu, result);
+
+    register.write(cpu, result);
+}
+
+fn update_or_flags(cpu: &mut Cpu, value: OperandValue) {
+    cpu.set_flag(
+        FlagKind::Z,
+        match value {
+            OperandValue::Byte(value) => value == 0,
+            OperandValue::Word(value) => value == 0,
+        },
+    );
+
+    cpu.set_flag(
+        FlagKind::S,
+        match value {
+            OperandValue::Byte(value) => (value & 0x80) != 0,
+            OperandValue::Word(value) => (value & 0x8000) != 0,
+        },
+    );
+
+    cpu.set_flag(FlagKind::P, PARITY_TABLE[value.as_word() as usize] != 0);
+
+    cpu.set_flag(FlagKind::C, false);
+    cpu.set_flag(FlagKind::O, false);
 }
 
 fn halt(cpu: &mut Cpu) {
