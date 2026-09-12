@@ -1,19 +1,5 @@
-use crate::cpu::{Cpu, PointerRegisterKind, SegmentRegisterKind};
-
-pub fn push(cpu: &mut Cpu, value: u16) {
-    let stack_pointer_value = cpu
-        .pointer_registers
-        .get(PointerRegisterKind::SP)
-        .wrapping_sub(2);
-
-    cpu.pointer_registers
-        .set(PointerRegisterKind::SP, stack_pointer_value);
-
-    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
-    let physical_address = cpu.physical_address(segment_register, stack_pointer_value);
-
-    cpu.bus.write_word_to_memory(physical_address, value);
-}
+use crate::cpu::{AddressingMode, Cpu, PointerRegisterKind, SegmentRegisterKind};
+use crate::cpu::operand::OperandSize;
 
 pub fn push_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
     let register_value = cpu.segment_registers.get(register_kind);
@@ -29,4 +15,28 @@ pub fn push_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     }
 
     push(cpu, register_value);
+}
+
+pub fn push_word_operand(cpu: &mut Cpu) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+
+    let operand = addressing_mode.operand(cpu);
+
+    let operand_value = operand.read(cpu, OperandSize::Word);
+    push(cpu, operand_value.as_word());
+}
+
+fn push(cpu: &mut Cpu, value: u16) {
+    let stack_pointer_value = cpu
+        .pointer_registers
+        .get(PointerRegisterKind::SP)
+        .wrapping_sub(2);
+
+    cpu.pointer_registers
+        .set(PointerRegisterKind::SP, stack_pointer_value);
+
+    let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
+    let physical_address = cpu.physical_address(segment_register, stack_pointer_value);
+
+    cpu.bus.write_word_to_memory(physical_address, value);
 }

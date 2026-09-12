@@ -1,12 +1,11 @@
-use std::ops::{Add, BitOr, Sub};
 use crate::cpu::Cpu;
+use std::ops::{Add, BitAnd, BitOr, BitXor, Sub};
 
 #[derive(Copy, Clone)]
 pub enum OperandValue {
     Byte(u8),
     Word(u16),
 }
-
 
 impl OperandValue {
     pub fn as_word(self) -> u16 {
@@ -20,6 +19,17 @@ impl OperandValue {
         match self {
             OperandValue::Byte(value) => value,
             OperandValue::Word(value) => value as u8,
+        }
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.as_word() == 0
+    }
+
+    pub fn is_negative(self) -> bool {
+        match self {
+            Self::Byte(value) => value & 0x80 != 0,
+            Self::Word(value) => value & 0x8000 != 0,
         }
     }
 }
@@ -78,7 +88,7 @@ macro_rules! impl_operand_op {
     ($trait:ident, $method:ident, $op:ident) => {
         impl $trait for OperandValue {
             type Output = OperandValue;
-             fn $method(self, rhs: Self) -> Self::Output {
+            fn $method(self, rhs: Self) -> Self::Output {
                 match (self, rhs) {
                     (OperandValue::Byte(a), OperandValue::Byte(b)) => OperandValue::Byte(a.$op(b)),
                     (OperandValue::Word(a), OperandValue::Word(b)) => OperandValue::Word(a.$op(b)),
@@ -92,3 +102,5 @@ macro_rules! impl_operand_op {
 impl_operand_op!(Add, add, wrapping_add);
 impl_operand_op!(Sub, sub, wrapping_sub);
 impl_operand_op!(BitOr, bitor, bitor);
+impl_operand_op!(BitAnd, bitand, bitand);
+impl_operand_op!(BitXor, bitxor, bitxor);

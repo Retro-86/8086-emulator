@@ -1,22 +1,34 @@
+pub mod flag;
 pub mod operand;
 pub mod operation;
+pub mod register;
 
 use crate::bus::Bus;
-use crate::cpu::operand::{Operand, OperandSize};
+use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::adc::{
     adc_immediate_to_register, adc_operand_to_register, adc_register_to_operand,
 };
 use crate::cpu::operation::add::{
     add_immediate_to_register, add_operand_to_register, add_register_to_operand,
 };
+use crate::cpu::operation::and::{
+    and_immediate_to_register, and_operand_to_register, and_register_to_operand,
+};
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
     mov_register_to_operand, mov_segment_register_to_operand,
 };
-use crate::cpu::operation::or::{or_operand_register, or_register_immediate, or_register_operand};
-use crate::cpu::operation::pop::{pop_segment_register, pop_word_register};
-use crate::cpu::operation::push::{push_segment_register, push_word_register};
+use crate::cpu::operation::or::{
+    or_immediate_to_register, or_operand_to_register, or_register_to_operand,
+};
+use crate::cpu::operation::pop::{pop_segment_register, pop_word_operand, pop_word_register};
+use crate::cpu::operation::push::{push_segment_register, push_word_operand, push_word_register};
+use crate::cpu::register::{
+    ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
+    PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
+    WordSharedRegisterKind,
+};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 
@@ -30,206 +42,6 @@ static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
     0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
 ];
-
-#[derive(Debug)]
-pub struct SharedRegisters {
-    bytes: [u8; 8],
-}
-
-impl SharedRegisters {
-    fn new() -> Self {
-        Self { bytes: [0; 8] }
-    }
-
-    fn set_byte(&mut self, kind: ByteSharedRegisterKind, value: u8) {
-        self.bytes[kind as usize] = value;
-    }
-
-    fn get_byte(&self, kind: ByteSharedRegisterKind) -> u8 {
-        self.bytes[kind as usize]
-    }
-
-    pub fn set_word(&mut self, kind: WordSharedRegisterKind, value: u16) {
-        let word_index = kind as usize;
-        let byte_index = word_index + 4;
-
-        self.bytes[word_index] = value as u8;
-        self.bytes[byte_index] = (value >> 8) as u8;
-    }
-
-    pub fn get_word(&self, kind: WordSharedRegisterKind) -> u16 {
-        let word_index = kind as usize;
-        let byte_index = word_index + 4;
-
-        let low_byte = self.bytes[word_index] as u16;
-        let high_byte = self.bytes[byte_index] as u16;
-
-        low_byte | (high_byte << 8)
-    }
-}
-
-pub enum WordSharedRegisterKind {
-    AX = 0,
-    CX = 1,
-    DX = 2,
-    BX = 3,
-}
-
-impl TryFrom<u8> for WordSharedRegisterKind {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::AX),
-            1 => Ok(Self::CX),
-            2 => Ok(Self::DX),
-            3 => Ok(Self::BX),
-            _ => Err(()),
-        }
-    }
-}
-
-pub enum ByteSharedRegisterKind {
-    AL = 0,
-    CL = 1,
-    DL = 2,
-    BL = 3,
-    AH = 4,
-    CH = 5,
-    DH = 6,
-    BH = 7,
-}
-
-impl TryFrom<u8> for ByteSharedRegisterKind {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::AL),
-            1 => Ok(Self::CL),
-            2 => Ok(Self::DL),
-            3 => Ok(Self::BL),
-            4 => Ok(Self::AH),
-            5 => Ok(Self::CH),
-            6 => Ok(Self::DH),
-            7 => Ok(Self::BH),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct IndexRegisters {
-    registers: [u16; 2],
-}
-
-impl IndexRegisters {
-    fn new() -> Self {
-        Self { registers: [0; 2] }
-    }
-
-    fn set(&mut self, kind: IndexRegisterKind, value: u16) {
-        self.registers[kind as usize] = value;
-    }
-
-    fn get(&self, kind: IndexRegisterKind) -> u16 {
-        self.registers[kind as usize]
-    }
-}
-
-pub enum IndexRegisterKind {
-    SI = 0,
-    DI = 1,
-}
-
-impl TryFrom<u8> for IndexRegisterKind {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::SI),
-            1 => Ok(Self::DI),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct PointerRegisters {
-    registers: [u16; 2],
-}
-
-impl PointerRegisters {
-    fn new() -> Self {
-        Self { registers: [0; 2] }
-    }
-
-    fn set(&mut self, kind: PointerRegisterKind, value: u16) {
-        self.registers[kind as usize] = value;
-    }
-
-    fn get(&self, kind: PointerRegisterKind) -> u16 {
-        self.registers[kind as usize]
-    }
-}
-
-pub enum PointerRegisterKind {
-    SP = 0,
-    BP = 1,
-}
-
-impl TryFrom<u8> for PointerRegisterKind {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::SP),
-            1 => Ok(Self::BP),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct SegmentRegisters {
-    registers: [u16; 4],
-}
-
-impl SegmentRegisters {
-    fn new() -> Self {
-        Self { registers: [0; 4] }
-    }
-
-    fn set(&mut self, kind: SegmentRegisterKind, value: u16) {
-        self.registers[kind as usize] = value;
-    }
-
-    fn get(&self, kind: SegmentRegisterKind) -> u16 {
-        self.registers[kind as usize]
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum SegmentRegisterKind {
-    CS = 0,
-    DS = 1,
-    ES = 2,
-    SS = 3,
-}
-
-impl TryFrom<u8> for SegmentRegisterKind {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::ES),
-            1 => Ok(Self::CS),
-            2 => Ok(Self::SS),
-            3 => Ok(Self::DS),
-            _ => Err(()),
-        }
-    }
-}
 
 pub enum FlagKind {
     O = 11,
@@ -307,35 +119,7 @@ pub struct Cpu {
     instruction_pointer: u16,
     bus: Bus,
     halted: bool,
-    segment_register_override: SegmentRegisterOverride,
-}
-
-#[derive(Debug)]
-struct SegmentRegisterOverride {
-    register_kind: Option<SegmentRegisterKind>,
-}
-
-impl SegmentRegisterOverride {
-    fn new() -> Self {
-        Self {
-            register_kind: None,
-        }
-    }
-
-    fn set(&mut self, kind: SegmentRegisterKind) {
-        self.register_kind = Some(kind);
-    }
-
-    fn get<F>(&mut self, default_kind: F) -> SegmentRegisterKind
-    where
-        F: FnOnce() -> SegmentRegisterKind,
-    {
-        self.register_kind.unwrap_or_else(default_kind)
-    }
-
-    fn reset(&mut self) {
-        self.register_kind = None;
-    }
+    segment_register_override: Option<SegmentRegisterKind>,
 }
 
 impl Cpu {
@@ -349,7 +133,7 @@ impl Cpu {
             instruction_pointer: 0,
             bus,
             halted: false,
-            segment_register_override: SegmentRegisterOverride::new(),
+            segment_register_override: None,
         }
     }
 }
@@ -378,7 +162,8 @@ impl Cpu {
 
         let segment_register_kind = self
             .segment_register_override
-            .get(|| addressing_mode.get_segment_register_kind());
+            .unwrap_or_else(|| addressing_mode.get_segment_register_kind());
+
         let register_value = self.segment_registers.get(segment_register_kind);
 
         self.physical_address(register_value, address)
@@ -496,6 +281,13 @@ impl Cpu {
         u16::from_le_bytes([low_byte, high_byte])
     }
 
+    fn fetch_value(&mut self, size: OperandSize) -> OperandValue {
+        match size {
+            OperandSize::Byte => OperandValue::Byte(self.fetch_byte()),
+            OperandSize::Word => OperandValue::Word(self.fetch_word()),
+        }
+    }
+
     pub fn step(&mut self) {
         if self.halted {
             return;
@@ -505,10 +297,10 @@ impl Cpu {
             let operation_code = self.fetch_byte();
 
             match operation_code {
-                0x26 => self.segment_register_override.set(SegmentRegisterKind::ES),
-                0x2E => self.segment_register_override.set(SegmentRegisterKind::CS),
-                0x36 => self.segment_register_override.set(SegmentRegisterKind::SS),
-                0x3E => self.segment_register_override.set(SegmentRegisterKind::DS),
+                0x26 => self.segment_register_override = Some(SegmentRegisterKind::ES),
+                0x2E => self.segment_register_override = Some(SegmentRegisterKind::CS),
+                0x36 => self.segment_register_override = Some(SegmentRegisterKind::SS),
+                0x3E => self.segment_register_override = Some(SegmentRegisterKind::DS),
                 _ => {
                     self.execute(operation_code);
                     break;
@@ -516,7 +308,7 @@ impl Cpu {
             }
         }
 
-        self.segment_register_override.reset();
+        self.segment_register_override = None;
     }
 
     pub fn halted(&self) -> bool {
@@ -535,12 +327,12 @@ impl Cpu {
             0x06 => push_segment_register(self, SegmentRegisterKind::ES),
             0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
 
-            0x08 => or_operand_register(self, OperandSize::Byte),
-            0x09 => or_operand_register(self, OperandSize::Word),
-            0x0A => or_register_operand(self, OperandSize::Byte),
-            0x0B => or_register_operand(self, OperandSize::Word),
-            0x0C => or_register_immediate(self, OperandSize::Byte),
-            0x0D => or_register_immediate(self, OperandSize::Word),
+            0x08 => or_register_to_operand(self, OperandSize::Byte),
+            0x09 => or_register_to_operand(self, OperandSize::Word),
+            0x0A => or_operand_to_register(self, OperandSize::Byte),
+            0x0B => or_operand_to_register(self, OperandSize::Word),
+            0x0C => or_immediate_to_register(self, OperandSize::Byte),
+            0x0D => or_immediate_to_register(self, OperandSize::Word),
 
             0x0E => push_segment_register(self, SegmentRegisterKind::CS),
             0x0F => pop_segment_register(self, SegmentRegisterKind::CS),
@@ -554,8 +346,17 @@ impl Cpu {
 
             0x16 => push_segment_register(self, SegmentRegisterKind::SS),
             0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
+
             0x1E => push_segment_register(self, SegmentRegisterKind::DS),
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
+
+            0x20 => and_register_to_operand(self, OperandSize::Byte),
+            0x21 => and_register_to_operand(self, OperandSize::Word),
+            0x22 => and_operand_to_register(self, OperandSize::Byte),
+            0x23 => and_operand_to_register(self, OperandSize::Word),
+            0x24 => and_immediate_to_register(self, OperandSize::Byte),
+            0x25 => and_immediate_to_register(self, OperandSize::Word),
+
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
 
@@ -565,42 +366,23 @@ impl Cpu {
             0x8B => mov_operand_to_register(self, OperandSize::Word),
             0x8C => mov_segment_register_to_operand(self),
             0x8E => mov_operand_to_segment_register(self),
+
+            0x8F => pop_word_operand(self),
+
             0xA0 => mov_memory_to_register(self, OperandSize::Byte),
             0xA1 => mov_memory_to_register(self, OperandSize::Word),
             0xA2 => mov_register_to_memory(self, OperandSize::Byte),
             0xA3 => mov_register_to_memory(self, OperandSize::Word),
-            0xB0..=0xB7 => mov_immediate_to_register(
-                self,
-                operation_code,
-                0xB0,
-                Self::fetch_byte,
-                |cpu, kind, value| cpu.shared_registers.set_byte(kind, value),
-            ),
-            0xB8..=0xBB => mov_immediate_to_register(
-                self,
-                operation_code,
-                0xB8,
-                Self::fetch_word,
-                |cpu, kind, value| cpu.shared_registers.set_word(kind, value),
-            ),
-            0xBC..=0xBD => mov_immediate_to_register(
-                self,
-                operation_code,
-                0xBC,
-                Self::fetch_word,
-                |cpu, kind, value| cpu.pointer_registers.set(kind, value),
-            ),
-            0xBE..=0xBF => mov_immediate_to_register(
-                self,
-                operation_code,
-                0xBE,
-                Self::fetch_word,
-                |cpu, kind, value| cpu.index_registers.set(kind, value),
-            ),
+
+            0xB0..=0xB7 => mov_immediate_to_register(self, OperandSize::Byte, operation_code, 0xB0),
+            0xB8..=0xBF => mov_immediate_to_register(self, OperandSize::Word, operation_code, 0xB8),
+
             0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
             0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
 
             0xF4 => halt(self),
+
+            0xFF => push_word_operand(self),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }
