@@ -4,6 +4,7 @@ pub mod operation;
 pub mod register;
 
 use crate::bus::Bus;
+use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::adc::{
     adc_immediate_to_register, adc_operand_to_register, adc_register_to_operand,
@@ -24,6 +25,10 @@ use crate::cpu::operation::or::{
 };
 use crate::cpu::operation::pop::{pop_segment_register, pop_word_operand, pop_word_register};
 use crate::cpu::operation::push::{push_segment_register, push_word_operand, push_word_register};
+use crate::cpu::operation::sbb::{
+    sbb_immediate_to_register, sbb_operand_to_register, sbb_register_to_operand,
+};
+use crate::cpu::operation::{OperationDirection, register_operand_operation};
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
     PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
@@ -31,6 +36,7 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use crate::cpu::operation::sub::{sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand};
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -347,6 +353,13 @@ impl Cpu {
             0x16 => push_segment_register(self, SegmentRegisterKind::SS),
             0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
 
+            0x18 => sbb_register_to_operand(self, OperandSize::Byte),
+            0x19 => sbb_register_to_operand(self, OperandSize::Word),
+            0x1A => sbb_operand_to_register(self, OperandSize::Byte),
+            0x1B => sbb_operand_to_register(self, OperandSize::Word),
+            0x1C => sbb_immediate_to_register(self, OperandSize::Byte),
+            0x1D => sbb_immediate_to_register(self, OperandSize::Word),
+
             0x1E => push_segment_register(self, SegmentRegisterKind::DS),
             0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
 
@@ -356,6 +369,13 @@ impl Cpu {
             0x23 => and_operand_to_register(self, OperandSize::Word),
             0x24 => and_immediate_to_register(self, OperandSize::Byte),
             0x25 => and_immediate_to_register(self, OperandSize::Word),
+
+            0x28 => sub_register_to_operand(self, OperandSize::Byte),
+            0x29 => sub_register_to_operand(self, OperandSize::Word),
+            0x2A => sub_operand_to_register(self, OperandSize::Byte),
+            0x2B => sub_operand_to_register(self, OperandSize::Word),
+            0x2C => sub_immediate_to_register(self, OperandSize::Byte),
+            0x2D => sub_immediate_to_register(self, OperandSize::Word),
 
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),

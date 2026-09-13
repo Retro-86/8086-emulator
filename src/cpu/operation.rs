@@ -8,6 +8,8 @@ pub mod mov;
 pub mod or;
 pub mod pop;
 pub mod push;
+pub mod sbb;
+pub mod sub;
 
 pub enum OperationDirection {
     RegisterToOperand,
