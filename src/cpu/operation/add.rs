@@ -76,4 +76,9 @@ fn update_add_flags(
         first.is_negative() == second.is_negative() && first.is_negative() != result.is_negative();
 
     cpu.set_flag(FlagKind::O, overflow);
+
+    let auxiliary_carry =
+        ((first.as_word() ^ second.as_word() ^ result.as_word()) & 0x10) != 0;
+
+    cpu.set_flag(FlagKind::A, auxiliary_carry);
 }

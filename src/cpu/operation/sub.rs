@@ -4,11 +4,11 @@ use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{register_operand_operation, OperationDirection};
 
 pub fn sub_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, sub)
+    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, sub)
 }
 
 pub fn sub_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, sub)
+    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, sub)
 }
 
 pub fn sub_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {

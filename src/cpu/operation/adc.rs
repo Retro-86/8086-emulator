@@ -51,19 +51,21 @@ fn update_adc_flags(
 ) {
     update_result_flags(cpu, result);
 
-    let carry = match (first, second, size) {
-        (OperandValue::Byte(first), OperandValue::Byte(second), OperandSize::Byte) => {
-            (first as u16 + second as u16) > u8::MAX as u16
-        }
-        (OperandValue::Word(first), OperandValue::Word(second), OperandSize::Word) => {
-            (first as u32 + second as u32) > u16::MAX as u32
-        }
-        _ => false,
+    let (max_value, sign_mask): (u32, u32) = match size {
+        OperandSize::Byte => (0xFF, 0x80),
+        OperandSize::Word => (0xFFFF, 0x8000),
     };
-    cpu.set_flag(FlagKind::C, carry);
 
-    let overflow =
-        first.is_negative() == second.is_negative() && first.is_negative() != result.is_negative();
+    let first = first.as_word() as u32;
+    let second = second.as_word() as u32;
+    let result = result.as_word() as u32;
 
+    let sum = first + second + cpu.get_flag(FlagKind::C) as u32;
+    cpu.set_flag(FlagKind::C, sum > max_value);
+
+    let overflow = (!(first ^ second) & (first ^ result) & sign_mask) != 0;
     cpu.set_flag(FlagKind::O, overflow);
+
+    let auxiliary_carry = ((first ^ second ^ result) & 0x10) != 0;
+    cpu.set_flag(FlagKind::A, auxiliary_carry);
 }
