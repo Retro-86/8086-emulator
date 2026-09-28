@@ -4,7 +4,6 @@ pub mod operation;
 pub mod register;
 
 use crate::bus::Bus;
-use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::adc::{
     adc_immediate_to_register, adc_operand_to_register, adc_register_to_operand,
@@ -28,7 +27,7 @@ use crate::cpu::operation::push::{push_segment_register, push_word_operand, push
 use crate::cpu::operation::sbb::{
     sbb_immediate_to_register, sbb_operand_to_register, sbb_register_to_operand,
 };
-use crate::cpu::operation::{OperationDirection, register_operand_operation};
+use crate::cpu::operation::sub::{sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand};
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
     PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
@@ -36,7 +35,7 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
-use crate::cpu::operation::sub::{sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand};
+use crate::cpu::operation::xor::{xor_immediate_to_register, xor_operand_to_register, xor_register_to_operand};
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -376,6 +375,13 @@ impl Cpu {
             0x2B => sub_operand_to_register(self, OperandSize::Word),
             0x2C => sub_immediate_to_register(self, OperandSize::Byte),
             0x2D => sub_immediate_to_register(self, OperandSize::Word),
+
+            0x30 => xor_register_to_operand(self, OperandSize::Byte),
+            0x31 => xor_register_to_operand(self, OperandSize::Word),
+            0x32 => xor_operand_to_register(self, OperandSize::Byte),
+            0x33 => xor_operand_to_register(self, OperandSize::Word),
+            0x34 => xor_immediate_to_register(self, OperandSize::Byte),
+            0x35 => xor_immediate_to_register(self, OperandSize::Word),
 
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),

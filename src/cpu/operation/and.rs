@@ -17,14 +17,12 @@ pub fn and_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register_value = register.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = register_value & immediate_value;
-
-    update_logic_flags(cpu, result);
+    let result = and(cpu, register_value, immediate_value, size);
 
     register.write(cpu, result);
 }
 
-pub fn and(
+fn and(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

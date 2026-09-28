@@ -19,6 +19,7 @@ pub fn pop_word_operand(cpu: &mut Cpu) {
     let operand = addressing_mode.operand(cpu);
 
     let value = pop(cpu);
+    
     operand.write(cpu, OperandValue::Word(value));
 }
 

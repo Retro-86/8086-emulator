@@ -32,14 +32,12 @@ pub fn add_immediate_to_operand(cpu: &mut Cpu, size: OperandSize) {
     let operand_value = operand.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = immediate_value + operand_value;
-
-    update_add_flags(cpu, operand_value, immediate_value, result, size);
+    let result = add(cpu, operand_value, immediate_value, size);
 
     operand.write(cpu, result);
 }
 
-pub fn add(
+fn add(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

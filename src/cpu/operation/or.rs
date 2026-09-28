@@ -11,7 +11,7 @@ pub fn or_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
     register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, or)
 }
 
-pub fn or(
+fn or(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,
@@ -30,9 +30,7 @@ pub fn or_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register_value = register.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = register_value | immediate_value;
-
-    update_logic_flags(cpu, result);
+    let result = or(cpu, register_value, immediate_value, size);
 
     register.write(cpu, result);
 }
