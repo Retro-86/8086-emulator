@@ -17,9 +17,7 @@ pub fn add_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register_value = register.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = register_value + immediate_value;
-
-    update_add_flags(cpu, register_value, immediate_value, result, size);
+    let result = add(cpu, register_value, immediate_value, size);
 
     register.write(cpu, result);
 }

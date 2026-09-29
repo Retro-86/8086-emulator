@@ -11,6 +11,9 @@ pub mod push;
 pub mod sbb;
 pub mod sub;
 pub mod xor;
+pub mod cmp;
+pub mod inc;
+pub mod dec;
 
 pub enum OperationDirection {
     RegisterToOperand,

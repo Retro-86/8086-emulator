@@ -35,6 +35,9 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use crate::cpu::operation::cmp::{cmp_immediate_to_register, cmp_operand_to_register, cmp_register_to_operand};
+use crate::cpu::operation::dec::dec_word_register;
+use crate::cpu::operation::inc::inc_word_register;
 use crate::cpu::operation::xor::{xor_immediate_to_register, xor_operand_to_register, xor_register_to_operand};
 
 static PARITY_TABLE: [u8; 256] = [
@@ -382,6 +385,16 @@ impl Cpu {
             0x33 => xor_operand_to_register(self, OperandSize::Word),
             0x34 => xor_immediate_to_register(self, OperandSize::Byte),
             0x35 => xor_immediate_to_register(self, OperandSize::Word),
+
+            0x38 => cmp_register_to_operand(self, OperandSize::Byte),
+            0x39 => cmp_register_to_operand(self, OperandSize::Word),
+            0x3A => cmp_operand_to_register(self, OperandSize::Byte),
+            0x3B => cmp_operand_to_register(self, OperandSize::Word),
+            0x3C => cmp_immediate_to_register(self, OperandSize::Byte),
+            0x3D => cmp_immediate_to_register(self, OperandSize::Word),
+
+            0x40..=0x47 => inc_word_register(self, 0x40, operation_code),
+            0x48..=0x4F => dec_word_register(self, 0x48, operation_code),
 
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
