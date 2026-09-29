@@ -7,6 +7,7 @@ pub mod bus;
 pub mod cpu;
 pub mod memory;
 pub mod ports;
+pub mod bios;
 
 fn main() {
     let mut memory = Memory::new();
@@ -27,6 +28,7 @@ fn main() {
     let bus = Bus::new(memory, ports);
 
     let mut cpu = Cpu::new(bus);
+    cpu.reset();
 
     for _ in 0..=10 {
         cpu.step();

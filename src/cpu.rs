@@ -14,6 +14,11 @@ use crate::cpu::operation::add::{
 use crate::cpu::operation::and::{
     and_immediate_to_register, and_operand_to_register, and_register_to_operand,
 };
+use crate::cpu::operation::cmp::{
+    cmp_immediate_to_register, cmp_operand_to_register, cmp_register_to_operand,
+};
+use crate::cpu::operation::dec::dec_word_register;
+use crate::cpu::operation::inc::inc_word_register;
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
@@ -27,7 +32,12 @@ use crate::cpu::operation::push::{push_segment_register, push_word_operand, push
 use crate::cpu::operation::sbb::{
     sbb_immediate_to_register, sbb_operand_to_register, sbb_register_to_operand,
 };
-use crate::cpu::operation::sub::{sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand};
+use crate::cpu::operation::sub::{
+    sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand,
+};
+use crate::cpu::operation::xor::{
+    xor_immediate_to_register, xor_operand_to_register, xor_register_to_operand,
+};
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
     PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
@@ -35,10 +45,6 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
-use crate::cpu::operation::cmp::{cmp_immediate_to_register, cmp_operand_to_register, cmp_register_to_operand};
-use crate::cpu::operation::dec::dec_word_register;
-use crate::cpu::operation::inc::inc_word_register;
-use crate::cpu::operation::xor::{xor_immediate_to_register, xor_operand_to_register, xor_register_to_operand};
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -147,6 +153,21 @@ impl Cpu {
 }
 
 impl Cpu {
+    pub fn reset(&mut self) {
+        self.reset_flags();
+
+        self.halted = false;
+
+        self.instruction_pointer = 0;
+
+        self.segment_register_override = None;
+
+        self.segment_registers.set(SegmentRegisterKind::CS, 0xFFFF);
+        self.segment_registers.set(SegmentRegisterKind::DS, 0);
+        self.segment_registers.set(SegmentRegisterKind::SS, 0);
+        self.segment_registers.set(SegmentRegisterKind::ES, 0);
+    }
+
     fn set_flag(&mut self, flag: FlagKind, value: bool) {
         let flag = flag as u16;
         self.flags = self.flags & !(1 << flag) | (u16::from(value) << flag);
@@ -159,6 +180,10 @@ impl Cpu {
 
     fn get_flag(&self, flag: FlagKind) -> bool {
         self.flags & (1 << flag as u16) != 0
+    }
+
+    fn reset_flags(&mut self) {
+        self.flags = 0;
     }
 
     fn physical_address(&self, segment: u16, offset: u16) -> u32 {
