@@ -14,6 +14,7 @@ pub mod xor;
 pub mod cmp;
 pub mod inc;
 pub mod dec;
+pub mod jmp;
 
 pub enum OperationDirection {
     RegisterToOperand,

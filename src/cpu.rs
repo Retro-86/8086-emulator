@@ -45,6 +45,7 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use crate::cpu::operation::jmp::{jmp_absolute, jmp_relative};
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -443,6 +444,10 @@ impl Cpu {
 
             0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
             0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
+
+            0xE9 => jmp_relative(self, OperandSize::Word),
+            0xEA => jmp_absolute(self),
+            0xEB => jmp_relative(self, OperandSize::Byte),
 
             0xF4 => halt(self),
 
