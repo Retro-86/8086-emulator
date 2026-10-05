@@ -1,0 +1,26 @@
+fn main() {
+    let mut memory = Memory::new();
+
+    memory.write_byte(0, 0xB8);
+    memory.write_word(1, 0x1234);
+    memory.write_byte(3, 0x50);
+    memory.write_byte(4, 0x5A);
+    memory.write_byte(5, 0x89);
+    memory.write_byte(6, 0x16);
+    memory.write_word(7, 0x5678);
+    memory.write_byte(9, 0xF4);
+
+    println!("{:x}", memory.read_word(7));
+
+    let ports = Ports::new();
+
+    let bus = Bus::new(memory, ports);
+
+    let mut cpu = Cpu::new(bus);
+    cpu.reset();
+
+    for _ in 0..=10 {
+        cpu.step();
+        println!("{:#?}", cpu.get_registers());
+    }
+}
