@@ -26,7 +26,7 @@ pub fn push_word_operand(cpu: &mut Cpu) {
     push(cpu, operand_value.as_word());
 }
 
-fn push(cpu: &mut Cpu, value: u16) {
+pub fn push(cpu: &mut Cpu, value: u16) {
     let stack_pointer_value = cpu
         .pointer_registers
         .get(PointerRegisterKind::SP)

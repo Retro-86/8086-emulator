@@ -49,6 +49,7 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use crate::cpu::operation::call::call;
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -453,6 +454,9 @@ impl Cpu {
             0x8E => mov_operand_to_segment_register(self),
 
             0x8F => pop_word_operand(self),
+
+            0x9A => call(self),
+            0x9B => {} //WAIT
 
             0xA0 => mov_memory_to_register(self, OperandSize::Byte),
             0xA1 => mov_memory_to_register(self, OperandSize::Word),
