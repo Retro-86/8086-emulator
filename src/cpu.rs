@@ -19,6 +19,10 @@ use crate::cpu::operation::cmp::{
 };
 use crate::cpu::operation::dec::dec_word_register;
 use crate::cpu::operation::inc::inc_word_register;
+use crate::cpu::operation::jmp::{
+    ja, jb, jbe, jg, jge, jl, jle, jmp_absolute, jmp_relative, jnb, jno, jns, jnz, jo, jpe, jpo,
+    js, jz,
+};
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
@@ -45,7 +49,6 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
-use crate::cpu::operation::jmp::{jmp_absolute, jmp_relative};
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -424,6 +427,23 @@ impl Cpu {
 
             0x50..=0x57 => push_word_register(self, 0x50, operation_code),
             0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
+
+            0x70 => jo(self),
+            0x71 => jno(self),
+            0x72 => jb(self),
+            0x73 => jnb(self),
+            0x74 => jz(self),
+            0x75 => jnz(self),
+            0x76 => jbe(self),
+            0x77 => ja(self),
+            0x78 => js(self),
+            0x79 => jns(self),
+            0x7A => jpe(self),
+            0x7B => jpo(self),
+            0x7C => jl(self),
+            0x7D => jge(self),
+            0x7E => jle(self),
+            0x7F => jg(self),
 
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),
