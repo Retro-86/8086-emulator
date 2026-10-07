@@ -33,7 +33,7 @@ use crate::cpu::operation::or::{
 };
 use crate::cpu::operation::pop::{pop_segment_register, pop_word_operand, pop_word_register};
 use crate::cpu::operation::push::{push_segment_register, push_word_operand, push_word_register};
-use crate::cpu::operation::ret::{ret, ret_word};
+use crate::cpu::operation::ret::{ret, ret_word, retf, retf_word};
 use crate::cpu::operation::sbb::{
     sbb_immediate_to_register, sbb_operand_to_register, sbb_register_to_operand,
 };
@@ -469,9 +469,12 @@ impl Cpu {
 
             0xC2 => ret_word(self),
             0xC3 => ret(self),
-
+                
             0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
             0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
+
+            0xCA => retf_word(self),
+            0xCB => retf(self),
 
             0xE9 => jmp_relative(self, OperandSize::Word),
             0xEA => jmp_absolute(self),
