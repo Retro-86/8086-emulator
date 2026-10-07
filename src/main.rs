@@ -1,12 +1,4 @@
-use crate::bus::Bus;
-use crate::cpu::Cpu;
-use crate::memory::Memory;
-use crate::ports::Ports;
-
-pub mod bus;
-pub mod cpu;
-pub mod memory;
-pub mod ports;
+use emulator::{bus::Bus, cpu::Cpu, memory::Memory, ports::Ports};
 
 fn main() {
     let memory = Memory::new();

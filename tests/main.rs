@@ -1,4 +1,7 @@
-fn main() {
+use emulator::{bus::Bus, cpu::Cpu, memory::Memory, ports::Ports};
+
+#[test]
+fn simple_test() {
     let mut memory = Memory::new();
 
     memory.write_byte(0, 0xB8);
