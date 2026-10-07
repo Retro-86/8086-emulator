@@ -23,7 +23,7 @@ pub fn pop_word_operand(cpu: &mut Cpu) {
     operand.write(cpu, OperandValue::Word(value));
 }
 
-fn pop(cpu: &mut Cpu) -> u16 {
+pub fn pop(cpu: &mut Cpu) -> u16 {
     let stack_pointer = cpu.pointer_registers.get(PointerRegisterKind::SP);
     let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
 
