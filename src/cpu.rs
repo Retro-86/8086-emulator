@@ -23,6 +23,7 @@ use crate::cpu::operation::jmp::{
     ja, jb, jbe, jg, jge, jl, jle, jmp_absolute, jmp_relative, jnb, jno, jns, jnz, jo, jpe, jpo,
     js, jz,
 };
+use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
 use crate::cpu::operation::mov::{
     mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
     mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
@@ -456,6 +457,10 @@ impl Cpu {
 
             0x8F => pop_word_operand(self),
 
+            0x90 => loop_while_not_zero(self),
+            0x91 => loop_while_equal(self),
+            0x92 => loops(self),
+            
             0x9A => call(self),
             0x9B => {} //WAIT
 

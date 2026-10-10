@@ -19,6 +19,7 @@ pub fn jmp_absolute(cpu: &mut Cpu) {
     cpu.instruction_pointer = offset;
 }
 
+//TODO rename
 pub fn jo(cpu: &mut Cpu) {
     jump_with_condition(cpu, cpu.get_flag(FlagKind::O));
 }
