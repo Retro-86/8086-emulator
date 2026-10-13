@@ -23,7 +23,7 @@ pub fn cmp_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
     let operand_value = operand.read(cpu, size);
     let register_value = register.read(cpu, size);
 
-    cmp(cpu, operand_value, register_value, size);
+    cmp(cpu, register_value, operand_value, size);
 }
 
 pub fn cmp_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {

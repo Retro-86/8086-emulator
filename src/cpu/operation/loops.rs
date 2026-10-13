@@ -21,7 +21,7 @@ pub fn loop_while_equal(cpu: &mut Cpu) {
     let counter_value = cpu
         .shared_registers
         .get_word(WordSharedRegisterKind::CX)
-        .wrapping_add(1);
+        .wrapping_sub(1);
     cpu.shared_registers
         .set_word(WordSharedRegisterKind::CX, counter_value);
 
@@ -36,7 +36,7 @@ pub fn loops(cpu: &mut Cpu) {
     let counter_value = cpu
         .shared_registers
         .get_word(WordSharedRegisterKind::CX)
-        .wrapping_add(1);
+        .wrapping_sub(1);
     cpu.shared_registers
         .set_word(WordSharedRegisterKind::CX, counter_value);
 

@@ -461,9 +461,7 @@ impl Cpu {
 
             0x8F => pop_word_operand(self),
 
-            0x90 => loop_while_not_zero(self),
-            0x91 => loop_while_equal(self),
-            0x92 => loops(self),
+            0x90 => {} //NOP
             
             0x9A => call(self),
             0x9B => {} //WAIT
@@ -484,6 +482,10 @@ impl Cpu {
 
             0xCA => retf_word(self),
             0xCB => retf(self),
+
+            0xE0 => loop_while_not_zero(self),
+            0xE1 => loop_while_equal(self),
+            0xE2 => loops(self),
 
             0xE9 => jmp_relative(self, OperandSize::Word),
             0xEA => jmp_absolute(self),
