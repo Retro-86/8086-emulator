@@ -22,7 +22,7 @@ pub fn adc_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, result);
 }
 
-fn adc(
+pub fn adc(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

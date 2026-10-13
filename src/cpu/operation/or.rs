@@ -11,7 +11,7 @@ pub fn or_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
     register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, or)
 }
 
-fn or(
+pub fn or(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

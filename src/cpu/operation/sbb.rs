@@ -22,7 +22,7 @@ pub fn sbb_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, result);
 }
 
-fn sbb(
+pub fn sbb(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

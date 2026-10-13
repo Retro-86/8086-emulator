@@ -52,6 +52,7 @@ use crate::cpu::register::{
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use crate::cpu::operation::call::call;
+use crate::cpu::operation::group;
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -447,6 +448,9 @@ impl Cpu {
             0x7D => jge(self),
             0x7E => jle(self),
             0x7F => jg(self),
+
+            0x81 => group::one(self, OperandSize::Word),
+            0x83 => group::one(self, OperandSize::Byte),
 
             0x88 => mov_register_to_operand(self, OperandSize::Byte),
             0x89 => mov_register_to_operand(self, OperandSize::Word),

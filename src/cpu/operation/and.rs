@@ -22,7 +22,7 @@ pub fn and_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, result);
 }
 
-fn and(
+pub fn and(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

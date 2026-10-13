@@ -35,7 +35,7 @@ pub fn cmp_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     cmp(cpu, register_value, immediate_value, size);
 }
 
-fn cmp(
+pub fn cmp(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

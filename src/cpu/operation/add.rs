@@ -35,7 +35,7 @@ pub fn add_immediate_to_operand(cpu: &mut Cpu, size: OperandSize) {
     operand.write(cpu, result);
 }
 
-fn add(
+pub fn add(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,

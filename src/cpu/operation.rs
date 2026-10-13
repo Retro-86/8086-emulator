@@ -18,6 +18,7 @@ pub mod jmp;
 pub mod call;
 pub mod ret;
 pub mod loops;
+pub mod group;
 
 pub enum OperationDirection {
     RegisterToOperand,

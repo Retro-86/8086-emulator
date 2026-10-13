@@ -22,7 +22,7 @@ pub fn sub_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, result);
 }
 
-fn sub(
+pub fn sub(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,
