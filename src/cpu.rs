@@ -14,11 +14,14 @@ use crate::cpu::operation::add::{
 use crate::cpu::operation::and::{
     and_immediate_to_register, and_operand_to_register, and_register_to_operand,
 };
+use crate::cpu::operation::call::call;
 use crate::cpu::operation::cmp::{
     cmp_immediate_to_register, cmp_operand_to_register, cmp_register_to_operand,
 };
 use crate::cpu::operation::dec::dec_word_register;
+use crate::cpu::operation::group;
 use crate::cpu::operation::inc::inc_word_register;
+use crate::cpu::operation::int::{interrupt, interrupt_immediate};
 use crate::cpu::operation::jmp::{
     ja, jb, jbe, jg, jge, jl, jle, jmp_absolute, jmp_relative, jnb, jno, jns, jnz, jo, jpe, jpo,
     js, jz,
@@ -51,8 +54,6 @@ use crate::cpu::register::{
 };
 use std::cmp::PartialEq;
 use std::fmt::Debug;
-use crate::cpu::operation::call::call;
-use crate::cpu::operation::group;
 
 static PARITY_TABLE: [u8; 256] = [
     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -142,6 +143,7 @@ pub struct Cpu {
     bus: Bus,
     halted: bool,
     segment_register_override: Option<SegmentRegisterKind>,
+    interrupts: Vec<fn(&mut Cpu, u8)>,
 }
 
 impl Cpu {
@@ -156,6 +158,7 @@ impl Cpu {
             bus,
             halted: false,
             segment_register_override: None,
+            interrupts: Vec::new(),
         }
     }
 }
@@ -329,6 +332,10 @@ impl Cpu {
         }
     }
 
+    pub fn register_interruption_handler(&mut self, vector: u8, handler: fn(&mut Cpu, u8)) {
+        self.interrupts.insert(vector as usize, handler);
+    }
+
     pub fn step(&mut self) {
         if self.halted {
             return;
@@ -462,7 +469,7 @@ impl Cpu {
             0x8F => pop_word_operand(self),
 
             0x90 => {} //NOP
-            
+
             0x9A => call(self),
             0x9B => {} //WAIT
 
@@ -476,12 +483,15 @@ impl Cpu {
 
             0xC2 => ret_word(self),
             0xC3 => ret(self),
-                
+
             0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
             0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
 
             0xCA => retf_word(self),
             0xCB => retf(self),
+
+            0xCC => interrupt(self, 3),
+            0xCD => interrupt_immediate(self),
 
             0xE0 => loop_while_not_zero(self),
             0xE1 => loop_while_equal(self),
