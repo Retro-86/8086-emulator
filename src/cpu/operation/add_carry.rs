@@ -3,26 +3,26 @@ use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{OperationDirection, register_operand_operation};
 use crate::cpu::{Cpu, FlagKind};
 
-pub fn adc_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, adc)
+pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
+    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, add_carry)
 }
 
-pub fn adc_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, adc)
+pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
+    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, add_carry)
 }
 
-pub fn adc_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register = Operand::Register(0);
 
     let register_value = register.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = adc(cpu, register_value, immediate_value, size);
+    let result = add_carry(cpu, register_value, immediate_value, size);
 
     register.write(cpu, result);
 }
 
-pub fn adc(
+pub fn add_carry(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,
@@ -37,12 +37,12 @@ pub fn adc(
 
     let result = destination + source + carry_value;
 
-    update_adc_flags(cpu, destination, source, result, size);
+    update_flags(cpu, destination, source, result, size);
 
     result
 }
 
-fn update_adc_flags(
+fn update_flags(
     cpu: &mut Cpu,
     first: OperandValue,
     second: OperandValue,

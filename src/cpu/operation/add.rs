@@ -3,15 +3,15 @@ use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{OperationDirection, register_operand_operation};
 use crate::cpu::{AddressingMode, Cpu, FlagKind};
 
-pub fn add_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
+pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
     register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, add)
 }
 
-pub fn add_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
     register_operand_operation(cpu, size, OperationDirection::OperandToRegister, add)
 }
 
-pub fn add_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register = Operand::Register(0);
 
     let register_value = register.read(cpu, size);
@@ -22,7 +22,7 @@ pub fn add_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, result);
 }
 
-pub fn add_immediate_to_operand(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_operand(cpu: &mut Cpu, size: OperandSize) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let operand = addressing_mode.operand(cpu);

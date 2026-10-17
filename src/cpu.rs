@@ -5,47 +5,13 @@ pub mod register;
 
 use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
-use crate::cpu::operation::adc::{
-    adc_immediate_to_register, adc_operand_to_register, adc_register_to_operand,
-};
-use crate::cpu::operation::add::{
-    add_immediate_to_register, add_operand_to_register, add_register_to_operand,
-};
-use crate::cpu::operation::and::{
-    and_immediate_to_register, and_operand_to_register, and_register_to_operand,
-};
 use crate::cpu::operation::call::call;
-use crate::cpu::operation::cmp::{
-    cmp_immediate_to_register, cmp_operand_to_register, cmp_register_to_operand,
-};
-use crate::cpu::operation::dec::dec_word_register;
-use crate::cpu::operation::group;
-use crate::cpu::operation::inc::inc_word_register;
-use crate::cpu::operation::int::{interrupt, interrupt_immediate};
-use crate::cpu::operation::jmp::{
-    ja, jb, jbe, jg, jge, jl, jle, jmp_absolute, jmp_relative, jnb, jno, jns, jnz, jo, jpe, jpo,
-    js, jz,
-};
+use crate::cpu::operation::group::ShiftSource;
+use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
-use crate::cpu::operation::mov::{
-    mov_immediate_to_operand, mov_immediate_to_register, mov_memory_to_register,
-    mov_operand_to_register, mov_operand_to_segment_register, mov_register_to_memory,
-    mov_register_to_operand, mov_segment_register_to_operand,
-};
-use crate::cpu::operation::or::{
-    or_immediate_to_register, or_operand_to_register, or_register_to_operand,
-};
-use crate::cpu::operation::pop::{pop_segment_register, pop_word_operand, pop_word_register};
-use crate::cpu::operation::push::{push_segment_register, push_word_operand, push_word_register};
-use crate::cpu::operation::ret::{ret, ret_word, retf, retf_word};
-use crate::cpu::operation::sbb::{
-    sbb_immediate_to_register, sbb_operand_to_register, sbb_register_to_operand,
-};
-use crate::cpu::operation::sub::{
-    sub_immediate_to_register, sub_operand_to_register, sub_register_to_operand,
-};
-use crate::cpu::operation::xor::{
-    xor_immediate_to_register, xor_operand_to_register, xor_register_to_operand,
+use crate::cpu::operation::{
+    add, add_carry, and, compare, decrement, group, increment, jump, mov, or, pop, push, ret,
+    subtract, subtract_borrow, xor,
 };
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
@@ -318,6 +284,10 @@ impl Cpu {
         value
     }
 
+    fn fetch_sign_extended_byte(&mut self) -> u16 {
+        self.fetch_byte() as i8 as u16
+    }
+
     fn fetch_word(&mut self) -> u16 {
         let low_byte = self.fetch_byte();
         let high_byte = self.fetch_byte();
@@ -365,145 +335,154 @@ impl Cpu {
 
     fn execute(&mut self, operation_code: u8) {
         match operation_code {
-            0x00 => add_register_to_operand(self, OperandSize::Byte),
-            0x01 => add_register_to_operand(self, OperandSize::Word),
-            0x02 => add_operand_to_register(self, OperandSize::Byte),
-            0x03 => add_operand_to_register(self, OperandSize::Word),
-            0x04 => add_immediate_to_register(self, OperandSize::Byte),
-            0x05 => add_immediate_to_register(self, OperandSize::Word),
+            0x00 => add::register_to_operand(self, OperandSize::Byte),
+            0x01 => add::register_to_operand(self, OperandSize::Word),
+            0x02 => add::operand_to_register(self, OperandSize::Byte),
+            0x03 => add::operand_to_register(self, OperandSize::Word),
+            0x04 => add::immediate_to_register(self, OperandSize::Byte),
+            0x05 => add::immediate_to_register(self, OperandSize::Word),
 
-            0x06 => push_segment_register(self, SegmentRegisterKind::ES),
-            0x07 => pop_segment_register(self, SegmentRegisterKind::ES),
+            0x06 => push::segment_register(self, SegmentRegisterKind::ES),
+            0x07 => pop::segment_register(self, SegmentRegisterKind::ES),
 
-            0x08 => or_register_to_operand(self, OperandSize::Byte),
-            0x09 => or_register_to_operand(self, OperandSize::Word),
-            0x0A => or_operand_to_register(self, OperandSize::Byte),
-            0x0B => or_operand_to_register(self, OperandSize::Word),
-            0x0C => or_immediate_to_register(self, OperandSize::Byte),
-            0x0D => or_immediate_to_register(self, OperandSize::Word),
+            0x08 => or::register_to_operand(self, OperandSize::Byte),
+            0x09 => or::register_to_operand(self, OperandSize::Word),
+            0x0A => or::operand_to_register(self, OperandSize::Byte),
+            0x0B => or::operand_to_register(self, OperandSize::Word),
+            0x0C => or::immediate_to_register(self, OperandSize::Byte),
+            0x0D => or::immediate_to_register(self, OperandSize::Word),
 
-            0x0E => push_segment_register(self, SegmentRegisterKind::CS),
-            0x0F => pop_segment_register(self, SegmentRegisterKind::CS),
+            0x0E => push::segment_register(self, SegmentRegisterKind::CS),
+            0x0F => pop::segment_register(self, SegmentRegisterKind::CS),
 
-            0x10 => adc_register_to_operand(self, OperandSize::Byte),
-            0x11 => adc_register_to_operand(self, OperandSize::Word),
-            0x12 => adc_operand_to_register(self, OperandSize::Byte),
-            0x13 => adc_operand_to_register(self, OperandSize::Word),
-            0x14 => adc_immediate_to_register(self, OperandSize::Byte),
-            0x15 => adc_immediate_to_register(self, OperandSize::Word),
+            0x10 => add_carry::register_to_operand(self, OperandSize::Byte),
+            0x11 => add_carry::register_to_operand(self, OperandSize::Word),
+            0x12 => add_carry::operand_to_register(self, OperandSize::Byte),
+            0x13 => add_carry::operand_to_register(self, OperandSize::Word),
+            0x14 => add_carry::immediate_to_register(self, OperandSize::Byte),
+            0x15 => add_carry::immediate_to_register(self, OperandSize::Word),
 
-            0x16 => push_segment_register(self, SegmentRegisterKind::SS),
-            0x17 => pop_segment_register(self, SegmentRegisterKind::SS),
+            0x16 => push::segment_register(self, SegmentRegisterKind::SS),
+            0x17 => pop::segment_register(self, SegmentRegisterKind::SS),
 
-            0x18 => sbb_register_to_operand(self, OperandSize::Byte),
-            0x19 => sbb_register_to_operand(self, OperandSize::Word),
-            0x1A => sbb_operand_to_register(self, OperandSize::Byte),
-            0x1B => sbb_operand_to_register(self, OperandSize::Word),
-            0x1C => sbb_immediate_to_register(self, OperandSize::Byte),
-            0x1D => sbb_immediate_to_register(self, OperandSize::Word),
+            0x18 => subtract_borrow::register_to_operand(self, OperandSize::Byte),
+            0x19 => subtract_borrow::register_to_operand(self, OperandSize::Word),
+            0x1A => subtract_borrow::operand_to_register(self, OperandSize::Byte),
+            0x1B => subtract_borrow::operand_to_register(self, OperandSize::Word),
+            0x1C => subtract_borrow::immediate_to_register(self, OperandSize::Byte),
+            0x1D => subtract_borrow::immediate_to_register(self, OperandSize::Word),
 
-            0x1E => push_segment_register(self, SegmentRegisterKind::DS),
-            0x1F => pop_segment_register(self, SegmentRegisterKind::DS),
+            0x1E => push::segment_register(self, SegmentRegisterKind::DS),
+            0x1F => pop::segment_register(self, SegmentRegisterKind::DS),
 
-            0x20 => and_register_to_operand(self, OperandSize::Byte),
-            0x21 => and_register_to_operand(self, OperandSize::Word),
-            0x22 => and_operand_to_register(self, OperandSize::Byte),
-            0x23 => and_operand_to_register(self, OperandSize::Word),
-            0x24 => and_immediate_to_register(self, OperandSize::Byte),
-            0x25 => and_immediate_to_register(self, OperandSize::Word),
+            0x20 => and::register_to_operand(self, OperandSize::Byte),
+            0x21 => and::register_to_operand(self, OperandSize::Word),
+            0x22 => and::operand_to_register(self, OperandSize::Byte),
+            0x23 => and::operand_to_register(self, OperandSize::Word),
+            0x24 => and::immediate_to_register(self, OperandSize::Byte),
+            0x25 => and::immediate_to_register(self, OperandSize::Word),
 
-            0x28 => sub_register_to_operand(self, OperandSize::Byte),
-            0x29 => sub_register_to_operand(self, OperandSize::Word),
-            0x2A => sub_operand_to_register(self, OperandSize::Byte),
-            0x2B => sub_operand_to_register(self, OperandSize::Word),
-            0x2C => sub_immediate_to_register(self, OperandSize::Byte),
-            0x2D => sub_immediate_to_register(self, OperandSize::Word),
+            0x28 => subtract::register_to_operand(self, OperandSize::Byte),
+            0x29 => subtract::register_to_operand(self, OperandSize::Word),
+            0x2A => subtract::operand_to_register(self, OperandSize::Byte),
+            0x2B => subtract::operand_to_register(self, OperandSize::Word),
+            0x2C => subtract::immediate_to_register(self, OperandSize::Byte),
+            0x2D => subtract::immediate_to_register(self, OperandSize::Word),
 
-            0x30 => xor_register_to_operand(self, OperandSize::Byte),
-            0x31 => xor_register_to_operand(self, OperandSize::Word),
-            0x32 => xor_operand_to_register(self, OperandSize::Byte),
-            0x33 => xor_operand_to_register(self, OperandSize::Word),
-            0x34 => xor_immediate_to_register(self, OperandSize::Byte),
-            0x35 => xor_immediate_to_register(self, OperandSize::Word),
+            0x30 => xor::register_to_operand(self, OperandSize::Byte),
+            0x31 => xor::register_to_operand(self, OperandSize::Word),
+            0x32 => xor::operand_to_register(self, OperandSize::Byte),
+            0x33 => xor::operand_to_register(self, OperandSize::Word),
+            0x34 => xor::immediate_to_register(self, OperandSize::Byte),
+            0x35 => xor::immediate_to_register(self, OperandSize::Word),
 
-            0x38 => cmp_register_to_operand(self, OperandSize::Byte),
-            0x39 => cmp_register_to_operand(self, OperandSize::Word),
-            0x3A => cmp_operand_to_register(self, OperandSize::Byte),
-            0x3B => cmp_operand_to_register(self, OperandSize::Word),
-            0x3C => cmp_immediate_to_register(self, OperandSize::Byte),
-            0x3D => cmp_immediate_to_register(self, OperandSize::Word),
+            0x38 => compare::register_to_operand(self, OperandSize::Byte),
+            0x39 => compare::register_to_operand(self, OperandSize::Word),
+            0x3A => compare::operand_to_register(self, OperandSize::Byte),
+            0x3B => compare::operand_to_register(self, OperandSize::Word),
+            0x3C => compare::immediate_to_register(self, OperandSize::Byte),
+            0x3D => compare::immediate_to_register(self, OperandSize::Word),
 
-            0x40..=0x47 => inc_word_register(self, 0x40, operation_code),
-            0x48..=0x4F => dec_word_register(self, 0x48, operation_code),
+            0x40..=0x47 => increment::word_register(self, 0x40, operation_code),
+            0x48..=0x4F => decrement::word_register(self, 0x48, operation_code),
 
-            0x50..=0x57 => push_word_register(self, 0x50, operation_code),
-            0x58..=0x5F => pop_word_register(self, 0x58, operation_code),
+            0x50..=0x57 => push::word_register(self, 0x50, operation_code),
+            0x58..=0x5F => pop::word_register(self, 0x58, operation_code),
 
-            0x70 => jo(self),
-            0x71 => jno(self),
-            0x72 => jb(self),
-            0x73 => jnb(self),
-            0x74 => jz(self),
-            0x75 => jnz(self),
-            0x76 => jbe(self),
-            0x77 => ja(self),
-            0x78 => js(self),
-            0x79 => jns(self),
-            0x7A => jpe(self),
-            0x7B => jpo(self),
-            0x7C => jl(self),
-            0x7D => jge(self),
-            0x7E => jle(self),
-            0x7F => jg(self),
+            0x70 => jump::if_overflow(self),
+            0x71 => jump::if_not_overflow(self),
+            0x72 => jump::if_below(self),
+            0x73 => jump::if_not_below(self),
+            0x74 => jump::if_zero(self),
+            0x75 => jump::if_not_zero(self),
+            0x76 => jump::if_below_or_equal(self),
+            0x77 => jump::if_above(self),
+            0x78 => jump::if_sign(self),
+            0x79 => jump::if_not_sign(self),
+            0x7A => jump::if_parity_even(self),
+            0x7B => jump::if_parity_odd(self),
+            0x7C => jump::if_less(self),
+            0x7D => jump::if_greater_or_equal(self),
+            0x7E => jump::if_less_or_equal(self),
+            0x7F => jump::if_greater(self),
 
             0x81 => group::one(self, OperandSize::Word),
             0x83 => group::one(self, OperandSize::Byte),
 
-            0x88 => mov_register_to_operand(self, OperandSize::Byte),
-            0x89 => mov_register_to_operand(self, OperandSize::Word),
-            0x8A => mov_operand_to_register(self, OperandSize::Byte),
-            0x8B => mov_operand_to_register(self, OperandSize::Word),
-            0x8C => mov_segment_register_to_operand(self),
-            0x8E => mov_operand_to_segment_register(self),
+            0x88 => mov::register_to_operand(self, OperandSize::Byte),
+            0x89 => mov::register_to_operand(self, OperandSize::Word),
+            0x8A => mov::operand_to_register(self, OperandSize::Byte),
+            0x8B => mov::operand_to_register(self, OperandSize::Word),
+            0x8C => mov::segment_register_to_operand(self),
+            0x8E => mov::operand_to_segment_register(self),
 
-            0x8F => pop_word_operand(self),
+            0x8F => pop::word_operand(self),
 
             0x90 => {} //NOP
 
             0x9A => call(self),
             0x9B => {} //WAIT
 
-            0xA0 => mov_memory_to_register(self, OperandSize::Byte),
-            0xA1 => mov_memory_to_register(self, OperandSize::Word),
-            0xA2 => mov_register_to_memory(self, OperandSize::Byte),
-            0xA3 => mov_register_to_memory(self, OperandSize::Word),
+            0xA0 => mov::memory_to_register(self, OperandSize::Byte),
+            0xA1 => mov::memory_to_register(self, OperandSize::Word),
+            0xA2 => mov::register_to_memory(self, OperandSize::Byte),
+            0xA3 => mov::register_to_memory(self, OperandSize::Word),
 
-            0xB0..=0xB7 => mov_immediate_to_register(self, OperandSize::Byte, operation_code, 0xB0),
-            0xB8..=0xBF => mov_immediate_to_register(self, OperandSize::Word, operation_code, 0xB8),
+            0xB0..=0xB7 => {
+                mov::immediate_to_register(self, OperandSize::Byte, operation_code, 0xB0)
+            }
+            0xB8..=0xBF => {
+                mov::immediate_to_register(self, OperandSize::Word, operation_code, 0xB8)
+            }
 
-            0xC2 => ret_word(self),
-            0xC3 => ret(self),
+            0xC2 => ret::near_word(self),
+            0xC3 => ret::near(self),
 
-            0xC6 => mov_immediate_to_operand(self, OperandSize::Byte),
-            0xC7 => mov_immediate_to_operand(self, OperandSize::Word),
+            0xC6 => mov::immediate_to_operand(self, OperandSize::Byte),
+            0xC7 => mov::immediate_to_operand(self, OperandSize::Word),
 
-            0xCA => retf_word(self),
-            0xCB => retf(self),
+            0xCA => ret::far_word(self),
+            0xCB => ret::far(self),
 
             0xCC => interrupt(self, 3),
             0xCD => interrupt_immediate(self),
+
+            0xD0 => group::two(self, OperandSize::Byte, ShiftSource::One),
+            0xD1 => group::two(self, OperandSize::Word, ShiftSource::One),
+            0xD2 => group::two(self, OperandSize::Byte, ShiftSource::Register),
+            0xD3 => group::two(self, OperandSize::Word, ShiftSource::Register),
 
             0xE0 => loop_while_not_zero(self),
             0xE1 => loop_while_equal(self),
             0xE2 => loops(self),
 
-            0xE9 => jmp_relative(self, OperandSize::Word),
-            0xEA => jmp_absolute(self),
-            0xEB => jmp_relative(self, OperandSize::Byte),
+            0xE9 => jump::relative(self, OperandSize::Word),
+            0xEA => jump::absolute(self),
+            0xEB => jump::relative(self, OperandSize::Byte),
 
             0xF4 => halt(self),
 
-            0xFF => push_word_operand(self),
+            0xFF => push::word_operand(self),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }

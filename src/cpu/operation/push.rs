@@ -1,12 +1,12 @@
 use crate::cpu::{AddressingMode, Cpu, PointerRegisterKind, SegmentRegisterKind};
 use crate::cpu::operand::OperandSize;
 
-pub fn push_segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
+pub fn segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
     let register_value = cpu.segment_registers.get(register_kind);
     push(cpu, register_value);
 }
 
-pub fn push_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+pub fn word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     let register_index = operation_code - base;
     let mut register_value = cpu.get_word_register(register_index);
 
@@ -17,7 +17,7 @@ pub fn push_word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
     push(cpu, register_value);
 }
 
-pub fn push_word_operand(cpu: &mut Cpu) {
+pub fn word_operand(cpu: &mut Cpu) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let operand = addressing_mode.operand(cpu);

@@ -1,7 +1,7 @@
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::{AddressingMode, Cpu, SegmentRegisterKind};
 
-pub fn mov_immediate_to_register(
+pub fn immediate_to_register(
     cpu: &mut Cpu,
     operand_size: OperandSize,
     operation_code: u8,
@@ -11,7 +11,7 @@ pub fn mov_immediate_to_register(
     Operand::Register(operation_code - base).write(cpu, value);
 }
 
-pub fn mov_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
+pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let register = Operand::Register(addressing_mode.register);
@@ -21,7 +21,7 @@ pub fn mov_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
     operand.write(cpu, value);
 }
 
-pub fn mov_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let operand = addressing_mode.operand(cpu);
@@ -31,7 +31,7 @@ pub fn mov_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, value);
 }
 
-pub fn mov_segment_register_to_operand(cpu: &mut Cpu) {
+pub fn segment_register_to_operand(cpu: &mut Cpu) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let segment_register_kind = SegmentRegisterKind::try_from(addressing_mode.register).unwrap();
@@ -41,7 +41,7 @@ pub fn mov_segment_register_to_operand(cpu: &mut Cpu) {
     operand.write(cpu, value);
 }
 
-pub fn mov_operand_to_segment_register(cpu: &mut Cpu) {
+pub fn operand_to_segment_register(cpu: &mut Cpu) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 
     let operand = addressing_mode.operand(cpu);
@@ -55,7 +55,7 @@ pub fn mov_operand_to_segment_register(cpu: &mut Cpu) {
     }
 }
 
-pub fn mov_memory_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn memory_to_register(cpu: &mut Cpu, size: OperandSize) {
     let address = get_physical_address(cpu);
 
     let operand = Operand::Memory(address);
@@ -66,7 +66,7 @@ pub fn mov_memory_to_register(cpu: &mut Cpu, size: OperandSize) {
     register.write(cpu, operand_value);
 }
 
-pub fn mov_register_to_memory(cpu: &mut Cpu, size: OperandSize) {
+pub fn register_to_memory(cpu: &mut Cpu, size: OperandSize) {
     let address = get_physical_address(cpu);
 
     let operand = Operand::Memory(address);
@@ -87,7 +87,7 @@ fn get_physical_address(cpu: &mut Cpu) -> u32 {
     cpu.physical_address(segment_register_value, offset)
 }
 
-pub fn mov_immediate_to_operand(cpu: &mut Cpu, operand_size: OperandSize) {
+pub fn immediate_to_operand(cpu: &mut Cpu, operand_size: OperandSize) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
     let operand = addressing_mode.operand(cpu);
 

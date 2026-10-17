@@ -1,48 +1,41 @@
+use crate::cpu::{Cpu, FlagKind};
 use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
-use crate::cpu::operation::{OperationDirection, register_operand_operation};
-use crate::cpu::{Cpu, FlagKind};
+use crate::cpu::operation::{register_operand_operation, OperationDirection};
 
-pub fn sbb_register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, sbb)
+pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
+    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, subtract)
 }
 
-pub fn sbb_operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, sbb)
+pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
+    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, subtract)
 }
 
-pub fn sbb_immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
     let register = Operand::Register(0);
 
     let register_value = register.read(cpu, size);
     let immediate_value = cpu.fetch_value(size);
 
-    let result = sbb(cpu, register_value, immediate_value, size);
+    let result = subtract(cpu, register_value, immediate_value, size);
 
     register.write(cpu, result);
 }
 
-pub fn sbb(
+pub fn subtract(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,
     size: OperandSize,
 ) -> OperandValue {
-    let carry = cpu.get_flag(FlagKind::C);
+    let result = destination - source;
 
-    let carry_value = match size {
-        OperandSize::Byte => OperandValue::Byte(carry as u8),
-        OperandSize::Word => OperandValue::Word(carry as u16),
-    };
-
-    let result = destination - source - carry_value;
-
-    update_sbb_flags(cpu, destination, source, result, size);
+    update_flags(cpu, destination, source, result, size);
 
     result
 }
 
-fn update_sbb_flags(
+pub fn update_flags(
     cpu: &mut Cpu,
     destination: OperandValue,
     source: OperandValue,
@@ -63,8 +56,7 @@ fn update_sbb_flags(
     let overflow = ((destination ^ source) & (destination ^ result) & sign_mask) != 0;
     cpu.set_flag(FlagKind::O, overflow);
 
-    let carry = cpu.get_flag(FlagKind::C);
-    let borrow = (destination as u32) < source as u32 + carry as u32;
+    let borrow = destination < source;
     cpu.set_flag(FlagKind::C, borrow);
 
     let auxiliary_carry_flag = ((destination ^ source ^ result) & 0x10) != 0;

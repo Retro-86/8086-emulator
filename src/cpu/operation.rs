@@ -1,25 +1,27 @@
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::{AddressingMode, Cpu};
 
-pub mod adc;
 pub mod add;
+pub mod add_carry;
 pub mod and;
+pub mod call;
+pub mod compare;
+pub mod decrement;
+pub mod group;
+pub mod increment;
+pub mod interrupt;
+pub mod jump;
+pub mod loops;
 pub mod mov;
 pub mod or;
 pub mod pop;
 pub mod push;
-pub mod sbb;
-pub mod sub;
-pub mod xor;
-pub mod cmp;
-pub mod inc;
-pub mod dec;
-pub mod jmp;
-pub mod call;
 pub mod ret;
-pub mod loops;
-pub mod group;
-pub mod int;
+pub mod rotate;
+pub mod shift;
+pub mod subtract;
+pub mod subtract_borrow;
+pub mod xor;
 
 pub enum OperationDirection {
     RegisterToOperand,
@@ -30,12 +32,7 @@ pub fn register_operand_operation(
     cpu: &mut Cpu,
     size: OperandSize,
     direction: OperationDirection,
-    operation: fn(
-        &mut Cpu,
-        OperandValue,
-        OperandValue,
-        OperandSize,
-    ) -> OperandValue,
+    operation: fn(&mut Cpu, OperandValue, OperandValue, OperandSize) -> OperandValue,
 ) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte());
 

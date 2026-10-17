@@ -1,7 +1,7 @@
 use crate::cpu::{Cpu, register::WordSharedRegisterKind};
 
 pub fn loop_while_not_zero(cpu: &mut Cpu) {
-    let displacement = cpu.fetch_byte() as i8 as u16;
+    let displacement = cpu.fetch_sign_extended_byte();
 
     let counter_value = cpu
         .shared_registers
@@ -16,7 +16,7 @@ pub fn loop_while_not_zero(cpu: &mut Cpu) {
 }
 
 pub fn loop_while_equal(cpu: &mut Cpu) {
-    let displacement = cpu.fetch_byte() as i8 as u16;
+    let displacement = cpu.fetch_sign_extended_byte();
 
     let counter_value = cpu
         .shared_registers
@@ -31,7 +31,7 @@ pub fn loop_while_equal(cpu: &mut Cpu) {
 }
 
 pub fn loops(cpu: &mut Cpu) {
-    let displacement = cpu.fetch_byte() as i8 as u16;
+    let displacement = cpu.fetch_sign_extended_byte();
 
     let counter_value = cpu
         .shared_registers

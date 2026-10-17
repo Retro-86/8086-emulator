@@ -2,17 +2,17 @@ use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::{Cpu, FlagKind};
 
-pub fn dec_word_register(cpu: &mut Cpu, base_operation_code: u8, operation_code: u8) {
+pub fn word_register(cpu: &mut Cpu, base_operation_code: u8, operation_code: u8) {
     let register = Operand::Register(operation_code - base_operation_code);
 
     let register_value = register.read(cpu, OperandSize::Word);
 
-    let result = dec(cpu, register_value, OperandSize::Word);
+    let result = decrement(cpu, register_value, OperandSize::Word);
 
     register.write(cpu, result);
 }
 
-fn dec(cpu: &mut Cpu, destination: OperandValue, size: OperandSize) -> OperandValue {
+fn decrement(cpu: &mut Cpu, destination: OperandValue, size: OperandSize) -> OperandValue {
     let source = match size {
         OperandSize::Byte => OperandValue::Byte(1),
         OperandSize::Word => OperandValue::Word(1),
