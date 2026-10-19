@@ -31,3 +31,13 @@ pub fn far_word(cpu: &mut Cpu) {
     cpu.pointer_registers
         .set(PointerRegisterKind::SP, stack_pointer);
 }
+
+pub fn from_interrupt(cpu: &mut Cpu) {
+    cpu.instruction_pointer = pop(cpu);
+
+    let displacement = pop(cpu);
+    cpu.segment_registers.set(SegmentRegisterKind::CS, displacement);
+
+    let flags = pop(cpu);
+    cpu.flags = flags;
+}

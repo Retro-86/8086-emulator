@@ -9,10 +9,7 @@ use crate::cpu::operation::call::call;
 use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
-use crate::cpu::operation::{
-    add, add_carry, and, compare, decrement, group, increment, jump, mov, or, pop, push, ret,
-    subtract, subtract_borrow, xor,
-};
+use crate::cpu::operation::{add, add_carry, and, clear, compare, decrement, group, increment, jump, mov, or, pop, push, ret, set, subtract, subtract_borrow, xor};
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
     PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
@@ -109,7 +106,7 @@ pub struct Cpu {
     bus: Bus,
     halted: bool,
     segment_register_override: Option<SegmentRegisterKind>,
-    interrupts: Vec<fn(&mut Cpu, u8)>,
+    interrupts: [Option<fn(&mut Cpu, u8)>; 256],
 }
 
 impl Cpu {
@@ -124,7 +121,7 @@ impl Cpu {
             bus,
             halted: false,
             segment_register_override: None,
-            interrupts: Vec::new(),
+            interrupts: [None; 256],
         }
     }
 }
@@ -303,7 +300,11 @@ impl Cpu {
     }
 
     pub fn register_interruption_handler(&mut self, vector: u8, handler: fn(&mut Cpu, u8)) {
-        self.interrupts.insert(vector as usize, handler);
+        self.interrupts[vector as usize] = Some(handler);;
+    }
+    
+    pub fn get_interrupt_handler(&self, vector: u8) -> Option<fn(&mut Cpu, u8)> {
+        self.interrupts[vector as usize].map(|handler| handler)
     }
 
     pub fn step(&mut self) {
@@ -467,6 +468,8 @@ impl Cpu {
             0xCC => interrupt(self, 3),
             0xCD => interrupt_immediate(self),
 
+            0xCF => ret::from_interrupt(self),
+
             0xD0 => group::two(self, OperandSize::Byte, ShiftSource::One),
             0xD1 => group::two(self, OperandSize::Word, ShiftSource::One),
             0xD2 => group::two(self, OperandSize::Byte, ShiftSource::Register),
@@ -481,6 +484,9 @@ impl Cpu {
             0xEB => jump::relative(self, OperandSize::Byte),
 
             0xF4 => halt(self),
+
+            0xFA => clear::interrupt_flag(self),
+            0xFB => set::interrupt_flag(self),
 
             0xFF => push::word_operand(self),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),

@@ -22,6 +22,8 @@ pub mod shift;
 pub mod subtract;
 pub mod subtract_borrow;
 pub mod xor;
+pub mod clear;
+pub mod set;
 
 pub enum OperationDirection {
     RegisterToOperand,

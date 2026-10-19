@@ -3,7 +3,7 @@ use crate::cpu::operation::push::push;
 use crate::cpu::register::SegmentRegisterKind;
 
 pub fn interrupt(cpu: &mut Cpu, vector: u8) {
-    if let Some(handler) = cpu.interrupts.get(vector as usize) {
+    if let Some(handler) = cpu.get_interrupt_handler(vector) {
         handler(cpu, vector);
         return;
     }
