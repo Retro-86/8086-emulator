@@ -1,3 +1,4 @@
+use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::{AddressingMode, Cpu};
 
@@ -32,24 +33,25 @@ pub enum OperationDirection {
 
 pub fn register_operand_operation(
     cpu: &mut Cpu,
+    bus: &mut Bus,
     size: OperandSize,
     direction: OperationDirection,
     operation: fn(&mut Cpu, OperandValue, OperandValue, OperandSize) -> OperandValue,
 ) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
 
     let register = Operand::Register(addressing_mode.register);
-    let operand = addressing_mode.operand(cpu);
+    let operand = addressing_mode.operand(cpu, bus);
 
     let (destination, source) = match direction {
         OperationDirection::RegisterToOperand => (operand, register),
         OperationDirection::OperandToRegister => (register, operand),
     };
 
-    let destination_value = destination.read(cpu, size);
-    let source_value = source.read(cpu, size);
+    let destination_value = destination.read(cpu, bus, size);
+    let source_value = source.read(cpu, bus, size);
 
     let result = operation(cpu, destination_value, source_value, size);
 
-    destination.write(cpu, result);
+    destination.write(cpu, bus, result);
 }

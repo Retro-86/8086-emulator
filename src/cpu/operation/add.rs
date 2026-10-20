@@ -1,38 +1,39 @@
+use crate::bus::Bus;
 use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{OperationDirection, register_operand_operation};
 use crate::cpu::{AddressingMode, Cpu, FlagKind};
 
-pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, add)
+pub fn register_to_operand(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+    register_operand_operation(cpu, bus, size, OperationDirection::RegisterToOperand, add)
 }
 
-pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, add)
+pub fn operand_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+    register_operand_operation(cpu, bus, size, OperationDirection::OperandToRegister, add)
 }
 
-pub fn immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     let register = Operand::Register(0);
 
-    let register_value = register.read(cpu, size);
-    let immediate_value = cpu.fetch_value(size);
+    let register_value = register.read(cpu, bus, size);
+    let immediate_value = cpu.fetch_value(bus, size);
 
     let result = add(cpu, register_value, immediate_value, size);
 
-    register.write(cpu, result);
+    register.write(cpu, bus, result);
 }
 
-pub fn immediate_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+pub fn immediate_to_operand(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
 
-    let operand = addressing_mode.operand(cpu);
+    let operand = addressing_mode.operand(cpu, bus);
 
-    let operand_value = operand.read(cpu, size);
-    let immediate_value = cpu.fetch_value(size);
+    let operand_value = operand.read(cpu, bus, size);
+    let immediate_value = cpu.fetch_value(bus, size);
 
     let result = add(cpu, operand_value, immediate_value, size);
 
-    operand.write(cpu, result);
+    operand.write(cpu, bus, result);
 }
 
 pub fn add(

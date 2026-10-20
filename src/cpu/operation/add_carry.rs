@@ -1,25 +1,26 @@
+use crate::bus::Bus;
 use crate::cpu::flag::update_result_flags;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{OperationDirection, register_operand_operation};
 use crate::cpu::{Cpu, FlagKind};
 
-pub fn operand_to_register(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::OperandToRegister, add_carry)
+pub fn operand_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+    register_operand_operation(cpu, bus, size, OperationDirection::OperandToRegister, add_carry)
 }
 
-pub fn register_to_operand(cpu: &mut Cpu, size: OperandSize) {
-    register_operand_operation(cpu, size, OperationDirection::RegisterToOperand, add_carry)
+pub fn register_to_operand(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+    register_operand_operation(cpu, bus, size, OperationDirection::RegisterToOperand, add_carry)
 }
 
-pub fn immediate_to_register(cpu: &mut Cpu, size: OperandSize) {
+pub fn immediate_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     let register = Operand::Register(0);
 
-    let register_value = register.read(cpu, size);
-    let immediate_value = cpu.fetch_value(size);
+    let register_value = register.read(cpu, bus, size);
+    let immediate_value = cpu.fetch_value(bus, size);
 
     let result = add_carry(cpu, register_value, immediate_value, size);
 
-    register.write(cpu, result);
+    register.write(cpu, bus, result);
 }
 
 pub fn add_carry(

@@ -1,12 +1,13 @@
+use crate::bus::Bus;
 use crate::cpu::{AddressingMode, Cpu, PointerRegisterKind, SegmentRegisterKind};
 use crate::cpu::operand::OperandSize;
 
-pub fn segment_register(cpu: &mut Cpu, register_kind: SegmentRegisterKind) {
+pub fn segment_register(cpu: &mut Cpu, bus: &mut Bus, register_kind: SegmentRegisterKind) {
     let register_value = cpu.segment_registers.get(register_kind);
-    push(cpu, register_value);
+    push(cpu, bus, register_value);
 }
 
-pub fn word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
+pub fn word_register(cpu: &mut Cpu, bus: &mut Bus, base: u8, operation_code: u8) {
     let register_index = operation_code - base;
     let mut register_value = cpu.get_word_register(register_index);
 
@@ -14,19 +15,19 @@ pub fn word_register(cpu: &mut Cpu, base: u8, operation_code: u8) {
         register_value = register_value.wrapping_sub(2);
     }
 
-    push(cpu, register_value);
+    push(cpu, bus, register_value);
 }
 
-pub fn word_operand(cpu: &mut Cpu) {
-    let addressing_mode = AddressingMode::new(cpu.fetch_byte());
+pub fn word_operand(cpu: &mut Cpu, bus: &mut Bus) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
 
-    let operand = addressing_mode.operand(cpu);
+    let operand = addressing_mode.operand(cpu, bus);
 
-    let operand_value = operand.read(cpu, OperandSize::Word);
-    push(cpu, operand_value.as_word());
+    let operand_value = operand.read(cpu, bus, OperandSize::Word);
+    push(cpu, bus, operand_value.as_word());
 }
 
-pub fn push(cpu: &mut Cpu, value: u16) {
+pub fn push(cpu: &mut Cpu, bus: &mut Bus, value: u16) {
     let stack_pointer_value = cpu
         .pointer_registers
         .get(PointerRegisterKind::SP)
@@ -38,5 +39,5 @@ pub fn push(cpu: &mut Cpu, value: u16) {
     let segment_register = cpu.segment_registers.get(SegmentRegisterKind::SS);
     let physical_address = cpu.physical_address(segment_register, stack_pointer_value);
 
-    cpu.bus.write_word_to_memory(physical_address, value);
+    bus.write_word_to_memory(physical_address, value);
 }

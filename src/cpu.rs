@@ -9,7 +9,10 @@ use crate::cpu::operation::call::call;
 use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
-use crate::cpu::operation::{add, add_carry, and, clear, compare, decrement, group, increment, jump, mov, or, pop, push, ret, set, subtract, subtract_borrow, xor};
+use crate::cpu::operation::{
+    add, add_carry, and, clear, compare, decrement, group, increment, jump, mov, or, pop, push,
+    ret, set, subtract, subtract_borrow, xor,
+};
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
     PointerRegisters, SegmentRegisterKind, SegmentRegisters, SharedRegisters,
@@ -87,10 +90,10 @@ impl AddressingMode {
         }
     }
 
-    fn operand(&self, cpu: &mut Cpu) -> Operand {
+    fn operand(&self, cpu: &mut Cpu, bus: &mut Bus) -> Operand {
         match self.kind {
             AddressingModeKind::Register => Operand::Register(self.operand),
-            _ => Operand::Memory(cpu.physical_address_from_addressing_mode(self)),
+            _ => Operand::Memory(cpu.physical_address_from_addressing_mode(bus, self)),
         }
     }
 }
@@ -103,14 +106,12 @@ pub struct Cpu {
     flags: u16,
     segment_registers: SegmentRegisters,
     instruction_pointer: u16,
-    bus: Bus,
     halted: bool,
     segment_register_override: Option<SegmentRegisterKind>,
-    interrupts: [Option<fn(&mut Cpu, u8)>; 256],
 }
 
 impl Cpu {
-    pub fn new(bus: Bus) -> Self {
+    pub fn new() -> Self {
         Self {
             shared_registers: SharedRegisters::new(),
             index_registers: IndexRegisters::new(),
@@ -118,10 +119,8 @@ impl Cpu {
             flags: 0b0000000000000000,
             segment_registers: SegmentRegisters::new(),
             instruction_pointer: 0,
-            bus,
             halted: false,
             segment_register_override: None,
-            interrupts: [None; 256],
         }
     }
 }
@@ -164,8 +163,12 @@ impl Cpu {
         ((segment as u32) << 4) + offset as u32
     }
 
-    fn physical_address_from_addressing_mode(&mut self, addressing_mode: &AddressingMode) -> u32 {
-        let address = self.effective_address(addressing_mode);
+    fn physical_address_from_addressing_mode(
+        &mut self,
+        bus: &mut Bus,
+        addressing_mode: &AddressingMode,
+    ) -> u32 {
+        let address = self.effective_address(bus, addressing_mode);
 
         let segment_register_kind = self
             .segment_register_override
@@ -176,7 +179,7 @@ impl Cpu {
         self.physical_address(register_value, address)
     }
 
-    fn effective_address(&mut self, addressing_mode: &AddressingMode) -> u16 {
+    fn effective_address(&mut self, bus: &mut Bus, addressing_mode: &AddressingMode) -> u16 {
         let base = match addressing_mode.kind {
             AddressingModeKind::NoDisplacement if addressing_mode.operand == 0b110 => 0,
             _ => match addressing_mode.operand {
@@ -204,22 +207,22 @@ impl Cpu {
             },
         };
 
-        let displacement = self.fetch_displacement(addressing_mode);
+        let displacement = self.fetch_displacement(bus, addressing_mode);
 
         base.wrapping_add(displacement)
     }
 
-    fn fetch_displacement(&mut self, addressing_mode: &AddressingMode) -> u16 {
+    fn fetch_displacement(&mut self, bus: &mut Bus, addressing_mode: &AddressingMode) -> u16 {
         match addressing_mode.kind {
             AddressingModeKind::NoDisplacement => {
                 if addressing_mode.operand == 0b110 {
-                    self.fetch_word()
+                    self.fetch_word(bus)
                 } else {
                     0
                 }
             }
-            AddressingModeKind::ByteDisplacement => (self.fetch_byte() as i8) as u16,
-            AddressingModeKind::WordDisplacement => self.fetch_word(),
+            AddressingModeKind::ByteDisplacement => (self.fetch_byte(bus) as i8) as u16,
+            AddressingModeKind::WordDisplacement => self.fetch_word(bus),
             AddressingModeKind::Register => 0,
         }
     }
@@ -270,50 +273,51 @@ impl Cpu {
         self.shared_registers.set_byte(kind, value);
     }
 
-    fn fetch_byte(&mut self) -> u8 {
+    fn fetch_byte(&mut self, bus: &mut Bus) -> u8 {
         let code_segment = self.segment_registers.get(SegmentRegisterKind::CS);
 
         let address = self.physical_address(code_segment, self.instruction_pointer);
-        let value = self.bus.read_byte_from_memory(address);
+        let value = bus.read_byte_from_memory(address);
 
         self.instruction_pointer = self.instruction_pointer.wrapping_add(1);
 
         value
     }
 
-    fn fetch_sign_extended_byte(&mut self) -> u16 {
-        self.fetch_byte() as i8 as u16
+    fn fetch_sign_extended_byte(&mut self, bus: &mut Bus) -> u16 {
+        self.fetch_byte(bus) as i8 as u16
     }
 
-    fn fetch_word(&mut self) -> u16 {
-        let low_byte = self.fetch_byte();
-        let high_byte = self.fetch_byte();
+    fn fetch_word(&mut self, bus: &mut Bus) -> u16 {
+        let low_byte = self.fetch_byte(bus);
+        let high_byte = self.fetch_byte(bus);
 
         u16::from_le_bytes([low_byte, high_byte])
     }
 
-    fn fetch_value(&mut self, size: OperandSize) -> OperandValue {
+    fn fetch_value(&mut self, bus: &mut Bus, size: OperandSize) -> OperandValue {
         match size {
-            OperandSize::Byte => OperandValue::Byte(self.fetch_byte()),
-            OperandSize::Word => OperandValue::Word(self.fetch_word()),
+            OperandSize::Byte => OperandValue::Byte(self.fetch_byte(bus)),
+            OperandSize::Word => OperandValue::Word(self.fetch_word(bus)),
         }
     }
 
-    pub fn register_interruption_handler(&mut self, vector: u8, handler: fn(&mut Cpu, u8)) {
-        self.interrupts[vector as usize] = Some(handler);;
-    }
-    
-    pub fn get_interrupt_handler(&self, vector: u8) -> Option<fn(&mut Cpu, u8)> {
-        self.interrupts[vector as usize].map(|handler| handler)
+    pub fn can_accept_interrupt(&self) -> bool {
+        self.get_flag(FlagKind::I)
     }
 
-    pub fn step(&mut self) {
+    pub fn enter_interrupt(&mut self, bus: &mut Bus, vector: u8) {
+        self.halted = false;
+        interrupt(self, bus, vector);
+    }
+
+    pub fn step(&mut self, bus: &mut Bus) {
         if self.halted {
             return;
         }
 
         loop {
-            let operation_code = self.fetch_byte();
+            let operation_code = self.fetch_byte(bus);
 
             match operation_code {
                 0x26 => self.segment_register_override = Some(SegmentRegisterKind::ES),
@@ -321,7 +325,7 @@ impl Cpu {
                 0x36 => self.segment_register_override = Some(SegmentRegisterKind::SS),
                 0x3E => self.segment_register_override = Some(SegmentRegisterKind::DS),
                 _ => {
-                    self.execute(operation_code);
+                    self.execute(bus, operation_code);
                     break;
                 }
             }
@@ -334,161 +338,161 @@ impl Cpu {
         self.halted
     }
 
-    fn execute(&mut self, operation_code: u8) {
+    fn execute(&mut self, bus: &mut Bus, operation_code: u8) {
         match operation_code {
-            0x00 => add::register_to_operand(self, OperandSize::Byte),
-            0x01 => add::register_to_operand(self, OperandSize::Word),
-            0x02 => add::operand_to_register(self, OperandSize::Byte),
-            0x03 => add::operand_to_register(self, OperandSize::Word),
-            0x04 => add::immediate_to_register(self, OperandSize::Byte),
-            0x05 => add::immediate_to_register(self, OperandSize::Word),
+            0x00 => add::register_to_operand(self, bus, OperandSize::Byte),
+            0x01 => add::register_to_operand(self, bus, OperandSize::Word),
+            0x02 => add::operand_to_register(self, bus, OperandSize::Byte),
+            0x03 => add::operand_to_register(self, bus, OperandSize::Word),
+            0x04 => add::immediate_to_register(self, bus, OperandSize::Byte),
+            0x05 => add::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x06 => push::segment_register(self, SegmentRegisterKind::ES),
-            0x07 => pop::segment_register(self, SegmentRegisterKind::ES),
+            0x06 => push::segment_register(self, bus, SegmentRegisterKind::ES),
+            0x07 => pop::segment_register(self, bus, SegmentRegisterKind::ES),
 
-            0x08 => or::register_to_operand(self, OperandSize::Byte),
-            0x09 => or::register_to_operand(self, OperandSize::Word),
-            0x0A => or::operand_to_register(self, OperandSize::Byte),
-            0x0B => or::operand_to_register(self, OperandSize::Word),
-            0x0C => or::immediate_to_register(self, OperandSize::Byte),
-            0x0D => or::immediate_to_register(self, OperandSize::Word),
+            0x08 => or::register_to_operand(self, bus, OperandSize::Byte),
+            0x09 => or::register_to_operand(self, bus, OperandSize::Word),
+            0x0A => or::operand_to_register(self, bus, OperandSize::Byte),
+            0x0B => or::operand_to_register(self, bus, OperandSize::Word),
+            0x0C => or::immediate_to_register(self, bus, OperandSize::Byte),
+            0x0D => or::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x0E => push::segment_register(self, SegmentRegisterKind::CS),
-            0x0F => pop::segment_register(self, SegmentRegisterKind::CS),
+            0x0E => push::segment_register(self, bus, SegmentRegisterKind::CS),
+            0x0F => pop::segment_register(self, bus, SegmentRegisterKind::CS),
 
-            0x10 => add_carry::register_to_operand(self, OperandSize::Byte),
-            0x11 => add_carry::register_to_operand(self, OperandSize::Word),
-            0x12 => add_carry::operand_to_register(self, OperandSize::Byte),
-            0x13 => add_carry::operand_to_register(self, OperandSize::Word),
-            0x14 => add_carry::immediate_to_register(self, OperandSize::Byte),
-            0x15 => add_carry::immediate_to_register(self, OperandSize::Word),
+            0x10 => add_carry::register_to_operand(self, bus, OperandSize::Byte),
+            0x11 => add_carry::register_to_operand(self, bus, OperandSize::Word),
+            0x12 => add_carry::operand_to_register(self, bus, OperandSize::Byte),
+            0x13 => add_carry::operand_to_register(self, bus, OperandSize::Word),
+            0x14 => add_carry::immediate_to_register(self, bus, OperandSize::Byte),
+            0x15 => add_carry::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x16 => push::segment_register(self, SegmentRegisterKind::SS),
-            0x17 => pop::segment_register(self, SegmentRegisterKind::SS),
+            0x16 => push::segment_register(self, bus, SegmentRegisterKind::SS),
+            0x17 => pop::segment_register(self, bus, SegmentRegisterKind::SS),
 
-            0x18 => subtract_borrow::register_to_operand(self, OperandSize::Byte),
-            0x19 => subtract_borrow::register_to_operand(self, OperandSize::Word),
-            0x1A => subtract_borrow::operand_to_register(self, OperandSize::Byte),
-            0x1B => subtract_borrow::operand_to_register(self, OperandSize::Word),
-            0x1C => subtract_borrow::immediate_to_register(self, OperandSize::Byte),
-            0x1D => subtract_borrow::immediate_to_register(self, OperandSize::Word),
+            0x18 => subtract_borrow::register_to_operand(self, bus, OperandSize::Byte),
+            0x19 => subtract_borrow::register_to_operand(self, bus, OperandSize::Word),
+            0x1A => subtract_borrow::operand_to_register(self, bus, OperandSize::Byte),
+            0x1B => subtract_borrow::operand_to_register(self, bus, OperandSize::Word),
+            0x1C => subtract_borrow::immediate_to_register(self, bus, OperandSize::Byte),
+            0x1D => subtract_borrow::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x1E => push::segment_register(self, SegmentRegisterKind::DS),
-            0x1F => pop::segment_register(self, SegmentRegisterKind::DS),
+            0x1E => push::segment_register(self, bus, SegmentRegisterKind::DS),
+            0x1F => pop::segment_register(self, bus, SegmentRegisterKind::DS),
 
-            0x20 => and::register_to_operand(self, OperandSize::Byte),
-            0x21 => and::register_to_operand(self, OperandSize::Word),
-            0x22 => and::operand_to_register(self, OperandSize::Byte),
-            0x23 => and::operand_to_register(self, OperandSize::Word),
-            0x24 => and::immediate_to_register(self, OperandSize::Byte),
-            0x25 => and::immediate_to_register(self, OperandSize::Word),
+            0x20 => and::register_to_operand(self, bus, OperandSize::Byte),
+            0x21 => and::register_to_operand(self, bus, OperandSize::Word),
+            0x22 => and::operand_to_register(self, bus, OperandSize::Byte),
+            0x23 => and::operand_to_register(self, bus, OperandSize::Word),
+            0x24 => and::immediate_to_register(self, bus, OperandSize::Byte),
+            0x25 => and::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x28 => subtract::register_to_operand(self, OperandSize::Byte),
-            0x29 => subtract::register_to_operand(self, OperandSize::Word),
-            0x2A => subtract::operand_to_register(self, OperandSize::Byte),
-            0x2B => subtract::operand_to_register(self, OperandSize::Word),
-            0x2C => subtract::immediate_to_register(self, OperandSize::Byte),
-            0x2D => subtract::immediate_to_register(self, OperandSize::Word),
+            0x28 => subtract::register_to_operand(self, bus, OperandSize::Byte),
+            0x29 => subtract::register_to_operand(self, bus, OperandSize::Word),
+            0x2A => subtract::operand_to_register(self, bus, OperandSize::Byte),
+            0x2B => subtract::operand_to_register(self, bus, OperandSize::Word),
+            0x2C => subtract::immediate_to_register(self, bus, OperandSize::Byte),
+            0x2D => subtract::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x30 => xor::register_to_operand(self, OperandSize::Byte),
-            0x31 => xor::register_to_operand(self, OperandSize::Word),
-            0x32 => xor::operand_to_register(self, OperandSize::Byte),
-            0x33 => xor::operand_to_register(self, OperandSize::Word),
-            0x34 => xor::immediate_to_register(self, OperandSize::Byte),
-            0x35 => xor::immediate_to_register(self, OperandSize::Word),
+            0x30 => xor::register_to_operand(self, bus, OperandSize::Byte),
+            0x31 => xor::register_to_operand(self, bus, OperandSize::Word),
+            0x32 => xor::operand_to_register(self, bus, OperandSize::Byte),
+            0x33 => xor::operand_to_register(self, bus, OperandSize::Word),
+            0x34 => xor::immediate_to_register(self, bus, OperandSize::Byte),
+            0x35 => xor::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x38 => compare::register_to_operand(self, OperandSize::Byte),
-            0x39 => compare::register_to_operand(self, OperandSize::Word),
-            0x3A => compare::operand_to_register(self, OperandSize::Byte),
-            0x3B => compare::operand_to_register(self, OperandSize::Word),
-            0x3C => compare::immediate_to_register(self, OperandSize::Byte),
-            0x3D => compare::immediate_to_register(self, OperandSize::Word),
+            0x38 => compare::register_to_operand(self, bus, OperandSize::Byte),
+            0x39 => compare::register_to_operand(self, bus, OperandSize::Word),
+            0x3A => compare::operand_to_register(self, bus, OperandSize::Byte),
+            0x3B => compare::operand_to_register(self, bus, OperandSize::Word),
+            0x3C => compare::immediate_to_register(self, bus, OperandSize::Byte),
+            0x3D => compare::immediate_to_register(self, bus, OperandSize::Word),
 
-            0x40..=0x47 => increment::word_register(self, 0x40, operation_code),
-            0x48..=0x4F => decrement::word_register(self, 0x48, operation_code),
+            0x40..=0x47 => increment::word_register(self, bus, 0x40, operation_code),
+            0x48..=0x4F => decrement::word_register(self, bus, 0x48, operation_code),
 
-            0x50..=0x57 => push::word_register(self, 0x50, operation_code),
-            0x58..=0x5F => pop::word_register(self, 0x58, operation_code),
+            0x50..=0x57 => push::word_register(self, bus, 0x50, operation_code),
+            0x58..=0x5F => pop::word_register(self, bus, 0x58, operation_code),
 
-            0x70 => jump::if_overflow(self),
-            0x71 => jump::if_not_overflow(self),
-            0x72 => jump::if_below(self),
-            0x73 => jump::if_not_below(self),
-            0x74 => jump::if_zero(self),
-            0x75 => jump::if_not_zero(self),
-            0x76 => jump::if_below_or_equal(self),
-            0x77 => jump::if_above(self),
-            0x78 => jump::if_sign(self),
-            0x79 => jump::if_not_sign(self),
-            0x7A => jump::if_parity_even(self),
-            0x7B => jump::if_parity_odd(self),
-            0x7C => jump::if_less(self),
-            0x7D => jump::if_greater_or_equal(self),
-            0x7E => jump::if_less_or_equal(self),
-            0x7F => jump::if_greater(self),
+            0x70 => jump::if_overflow(self, bus),
+            0x71 => jump::if_not_overflow(self, bus),
+            0x72 => jump::if_below(self, bus),
+            0x73 => jump::if_not_below(self, bus),
+            0x74 => jump::if_zero(self, bus),
+            0x75 => jump::if_not_zero(self, bus),
+            0x76 => jump::if_below_or_equal(self, bus),
+            0x77 => jump::if_above(self, bus),
+            0x78 => jump::if_sign(self, bus),
+            0x79 => jump::if_not_sign(self, bus),
+            0x7A => jump::if_parity_even(self, bus),
+            0x7B => jump::if_parity_odd(self, bus),
+            0x7C => jump::if_less(self, bus),
+            0x7D => jump::if_greater_or_equal(self, bus),
+            0x7E => jump::if_less_or_equal(self, bus),
+            0x7F => jump::if_greater(self, bus),
 
-            0x81 => group::one(self, OperandSize::Word),
-            0x83 => group::one(self, OperandSize::Byte),
+            0x81 => group::one(self, bus, OperandSize::Word),
+            0x83 => group::one(self, bus, OperandSize::Byte),
 
-            0x88 => mov::register_to_operand(self, OperandSize::Byte),
-            0x89 => mov::register_to_operand(self, OperandSize::Word),
-            0x8A => mov::operand_to_register(self, OperandSize::Byte),
-            0x8B => mov::operand_to_register(self, OperandSize::Word),
-            0x8C => mov::segment_register_to_operand(self),
-            0x8E => mov::operand_to_segment_register(self),
+            0x88 => mov::register_to_operand(self, bus, OperandSize::Byte),
+            0x89 => mov::register_to_operand(self, bus, OperandSize::Word),
+            0x8A => mov::operand_to_register(self, bus, OperandSize::Byte),
+            0x8B => mov::operand_to_register(self, bus, OperandSize::Word),
+            0x8C => mov::segment_register_to_operand(self, bus),
+            0x8E => mov::operand_to_segment_register(self, bus),
 
-            0x8F => pop::word_operand(self),
+            0x8F => pop::word_operand(self, bus),
 
             0x90 => {} //NOP
 
-            0x9A => call(self),
+            0x9A => call(self, bus),
             0x9B => {} //WAIT
 
-            0xA0 => mov::memory_to_register(self, OperandSize::Byte),
-            0xA1 => mov::memory_to_register(self, OperandSize::Word),
-            0xA2 => mov::register_to_memory(self, OperandSize::Byte),
-            0xA3 => mov::register_to_memory(self, OperandSize::Word),
+            0xA0 => mov::memory_to_register(self, bus, OperandSize::Byte),
+            0xA1 => mov::memory_to_register(self, bus, OperandSize::Word),
+            0xA2 => mov::register_to_memory(self, bus, OperandSize::Byte),
+            0xA3 => mov::register_to_memory(self, bus, OperandSize::Word),
 
             0xB0..=0xB7 => {
-                mov::immediate_to_register(self, OperandSize::Byte, operation_code, 0xB0)
+                mov::immediate_to_register(self, bus, OperandSize::Byte, operation_code, 0xB0)
             }
             0xB8..=0xBF => {
-                mov::immediate_to_register(self, OperandSize::Word, operation_code, 0xB8)
+                mov::immediate_to_register(self, bus, OperandSize::Word, operation_code, 0xB8)
             }
 
-            0xC2 => ret::near_word(self),
-            0xC3 => ret::near(self),
+            0xC2 => ret::near_word(self, bus),
+            0xC3 => ret::near(self, bus),
 
-            0xC6 => mov::immediate_to_operand(self, OperandSize::Byte),
-            0xC7 => mov::immediate_to_operand(self, OperandSize::Word),
+            0xC6 => mov::immediate_to_operand(self, bus, OperandSize::Byte),
+            0xC7 => mov::immediate_to_operand(self, bus, OperandSize::Word),
 
-            0xCA => ret::far_word(self),
-            0xCB => ret::far(self),
+            0xCA => ret::far_word(self, bus),
+            0xCB => ret::far(self, bus),
 
-            0xCC => interrupt(self, 3),
-            0xCD => interrupt_immediate(self),
+            0xCC => interrupt(self, bus, 3),
+            0xCD => interrupt_immediate(self, bus),
 
-            0xCF => ret::from_interrupt(self),
+            0xCF => ret::from_interrupt(self, bus),
 
-            0xD0 => group::two(self, OperandSize::Byte, ShiftSource::One),
-            0xD1 => group::two(self, OperandSize::Word, ShiftSource::One),
-            0xD2 => group::two(self, OperandSize::Byte, ShiftSource::Register),
-            0xD3 => group::two(self, OperandSize::Word, ShiftSource::Register),
+            0xD0 => group::two(self, bus, OperandSize::Byte, ShiftSource::One),
+            0xD1 => group::two(self, bus, OperandSize::Word, ShiftSource::One),
+            0xD2 => group::two(self, bus, OperandSize::Byte, ShiftSource::Register),
+            0xD3 => group::two(self, bus, OperandSize::Word, ShiftSource::Register),
 
-            0xE0 => loop_while_not_zero(self),
-            0xE1 => loop_while_equal(self),
-            0xE2 => loops(self),
+            0xE0 => loop_while_not_zero(self, bus),
+            0xE1 => loop_while_equal(self, bus),
+            0xE2 => loops(self, bus),
 
-            0xE9 => jump::relative(self, OperandSize::Word),
-            0xEA => jump::absolute(self),
-            0xEB => jump::relative(self, OperandSize::Byte),
+            0xE9 => jump::relative(self, bus, OperandSize::Word),
+            0xEA => jump::absolute(self, bus),
+            0xEB => jump::relative(self, bus, OperandSize::Byte),
 
             0xF4 => halt(self),
 
             0xFA => clear::interrupt_flag(self),
             0xFB => set::interrupt_flag(self),
 
-            0xFF => push::word_operand(self),
+            0xFF => push::word_operand(self, bus),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }

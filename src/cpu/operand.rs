@@ -1,3 +1,4 @@
+use crate::bus::Bus;
 use crate::cpu::Cpu;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Sub};
 
@@ -48,7 +49,7 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub fn read(self, cpu: &mut Cpu, size: OperandSize) -> OperandValue {
+    pub fn read(self, cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) -> OperandValue {
         match (self, size) {
             (Operand::Register(register), OperandSize::Byte) => {
                 OperandValue::Byte(cpu.get_byte_register(register))
@@ -57,15 +58,15 @@ impl Operand {
                 OperandValue::Word(cpu.get_word_register(register))
             }
             (Operand::Memory(address), OperandSize::Byte) => {
-                OperandValue::Byte(cpu.bus.read_byte_from_memory(address))
+                OperandValue::Byte(bus.read_byte_from_memory(address))
             }
             (Operand::Memory(address), OperandSize::Word) => {
-                OperandValue::Word(cpu.bus.read_word_from_memory(address))
+                OperandValue::Word(bus.read_word_from_memory(address))
             }
         }
     }
 
-    pub fn write(self, cpu: &mut Cpu, value: OperandValue) {
+    pub fn write(self, cpu: &mut Cpu, bus: &mut Bus, value: OperandValue) {
         match (self, value) {
             (Operand::Register(register), OperandValue::Byte(value)) => {
                 cpu.set_byte_register(register, value)
@@ -75,10 +76,10 @@ impl Operand {
             }
 
             (Operand::Memory(address), OperandValue::Byte(value)) => {
-                cpu.bus.write_byte_to_memory(address, value)
+                bus.write_byte_to_memory(address, value)
             }
             (Operand::Memory(address), OperandValue::Word(value)) => {
-                cpu.bus.write_word_to_memory(address, value)
+                bus.write_word_to_memory(address, value)
             }
         }
     }

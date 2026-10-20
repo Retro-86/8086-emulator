@@ -1,4 +1,7 @@
-use emulator::{bus::Bus, cpu::Cpu, memory::Memory, ports::Ports};
+use emulator::{
+    bus::Bus, controller::interrupt::ProgrammableInterruptController, cpu::Cpu, memory::Memory,
+};
+use emulator::machine::Machine;
 
 #[test]
 fn simple_test() {
@@ -15,15 +18,17 @@ fn simple_test() {
 
     println!("{:x}", memory.read_word(7));
 
-    let ports = Ports::new();
+    let pic = ProgrammableInterruptController::new();
+    
+    let bus = Bus::new(memory, pic);
 
-    let bus = Bus::new(memory, ports);
-
-    let mut cpu = Cpu::new(bus);
+    let mut cpu = Cpu::new();
     cpu.reset();
+    
+    let mut machine = Machine::new(cpu, bus);
 
     for _ in 0..=10 {
-        cpu.step();
-        println!("{:#?}", cpu.get_registers());
+        machine.step();
+        println!("{:#?}", machine.get_cpu().get_registers());
     }
 }
