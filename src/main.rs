@@ -7,8 +7,8 @@ fn main() {
     let pic = ProgrammableInterruptController::new();
 
     let bus = Bus::new(memory, pic);
-    let mut cpu = Cpu::new();
 
+    let mut cpu = Cpu::new();
     cpu.reset();
 
     let _machine = Machine::new(cpu, bus);

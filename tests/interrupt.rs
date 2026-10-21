@@ -40,7 +40,10 @@ fn software_interrupt_and_restore_state() {
 
     let mut cpu = Cpu::new();
     cpu.reset();
-    let mut machine = Machine::new(cpu, Bus::new(memory, Pic::new()));
+
+    let bus = Bus::new(memory, Pic::new());
+
+    let mut machine = Machine::new(cpu, bus);
 
     machine.step();
     machine.step();
@@ -96,10 +99,12 @@ fn hardware_interrupt_reaches_guest_handler() {
     write_bytes(&mut memory, 0x0200, &[0xB8, 0xFE, 0xCA, 0xCF]);
 
     let mut bus = Bus::new(memory, Pic::new());
+
     bus.write_byte_to_port(0x20, 0x13);
     bus.write_byte_to_port(0x21, 0x20);
     bus.write_byte_to_port(0x21, 0x01);
     bus.write_byte_to_port(0x21, 0xFD);
+
     bus.request_interrupt(1);
 
     let mut cpu = Cpu::new();

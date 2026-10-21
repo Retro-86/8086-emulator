@@ -1,20 +1,27 @@
 use crate::controller::interrupt::ProgrammableInterruptController;
 use crate::memory::Memory;
-
-pub enum AddressSpace {
-    Memory,
-    Port,
-}
+use crate::port::Ports;
 
 #[derive(Debug)]
 pub struct Bus {
     memory: Memory,
+    ports: Ports,
     pic: ProgrammableInterruptController,
 }
 
 impl Bus {
     pub fn new(memory: Memory, pic: ProgrammableInterruptController) -> Self {
-        Self { memory, pic }
+        let mut ports = Ports::new();
+        
+        ports.register_byte_reader(&[0x20, 0x21], |bus, port_address| {
+            bus.pic.read(port_address)
+        });
+
+        ports.register_byte_writer(&[0x20, 0x21], |bus, port_address, value| {
+            bus.pic.write(port_address, value);
+        });
+
+        Self { memory, ports, pic }
     }
 
     pub fn request_interrupt(&mut self, line: u8) {
@@ -25,10 +32,10 @@ impl Bus {
         self.pic.acknowledge()
     }
 
-    pub fn read_byte_from_port(&self, port: u16) -> u8 {
-        match port {
-            0x20 | 0x21 => self.pic.read(port),
-            _ => unimplemented!(),
+    pub fn read_byte_from_port(&mut self, port: u16) -> u8 {
+        match self.ports.byte_read_handler(port) {
+            Some(reader) => reader(self, port),
+            _ => panic!("unmapped byte read from port {port:#x}"),
         }
     }
 
@@ -36,8 +43,11 @@ impl Bus {
         self.memory.read_byte(address)
     }
 
-    pub fn read_word_from_port(&self, port: u16) -> u16 {
-        todo!()
+    pub fn read_word_from_port(&mut self, port: u16) -> u16 {
+        match self.ports.word_read_handler(port) {
+            Some(reader) => reader(self, port),
+            _ => panic!("unmapped word read from port {port:#x}"),
+        }
     }
 
     pub fn read_word_from_memory(&self, address: u32) -> u16 {
@@ -45,9 +55,8 @@ impl Bus {
     }
 
     pub fn write_byte_to_port(&mut self, port: u16, value: u8) {
-        match port {
-            0x20 | 0x21 => self.pic.write(port, value),
-            _ => unimplemented!(),
+        if let Some(writer) = self.ports.byte_write_handler(port) {
+            writer(self, port, value);
         }
     }
 
@@ -56,7 +65,9 @@ impl Bus {
     }
 
     pub fn write_word_to_port(&mut self, port: u16, value: u16) {
-        todo!()
+        if let Some(writer) = self.ports.word_write_handler(port) {
+            writer(self, port, value);
+        }
     }
 
     pub fn write_word_to_memory(&mut self, address: u32, value: u16) {
