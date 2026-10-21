@@ -10,8 +10,8 @@ use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
 use crate::cpu::operation::{
-    add, add_carry, and, clear, compare, decrement, group, increment, jump, mov, or, pop, push,
-    ret, set, subtract, subtract_borrow, xor,
+    add, add_carry, and, clear, compare, decrement, group, increment, input, jump, mov, or, out,
+    pop, push, ret, set, subtract, subtract_borrow, xor,
 };
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
@@ -306,12 +306,18 @@ impl Cpu {
         self.get_flag(FlagKind::I)
     }
 
-    pub fn enter_interrupt(&mut self, bus: &mut Bus, vector: u8) {
+    pub fn handle_interrupt(&mut self, bus: &mut Bus, vector: u8) {
         self.halted = false;
         interrupt(self, bus, vector);
     }
 
     pub fn step(&mut self, bus: &mut Bus) {
+        if self.can_accept_interrupt() {
+            if let Some(vector) = bus.acknowledge_interrupt() {
+                self.handle_interrupt(bus, vector);
+            }
+        }
+
         if self.halted {
             return;
         }
@@ -483,9 +489,19 @@ impl Cpu {
             0xE1 => loop_while_equal(self, bus),
             0xE2 => loops(self, bus),
 
+            0xE4 => input::immediate_to_register(self, bus, OperandSize::Byte),
+            0xE5 => input::immediate_to_register(self, bus, OperandSize::Word),
+            0xE6 => out::register_to_immediate(self, bus, OperandSize::Byte),
+            0xE7 => out::register_to_immediate(self, bus, OperandSize::Word),
+
             0xE9 => jump::relative(self, bus, OperandSize::Word),
             0xEA => jump::absolute(self, bus),
             0xEB => jump::relative(self, bus, OperandSize::Byte),
+
+            0xEC => input::port_to_register(self, bus, OperandSize::Byte),
+            0xED => input::port_to_register(self, bus, OperandSize::Word),
+            0xEE => out::register_to_port(self, bus, OperandSize::Byte),
+            0xEF => out::register_to_port(self, bus, OperandSize::Word),
 
             0xF4 => halt(self),
 
