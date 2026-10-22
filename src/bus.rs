@@ -12,7 +12,7 @@ pub struct Bus {
 impl Bus {
     pub fn new(memory: Memory, pic: ProgrammableInterruptController) -> Self {
         let mut ports = Ports::new();
-        
+
         ports.register_byte_reader(&[0x20, 0x21], |bus, port_address| {
             bus.pic.read(port_address)
         });
@@ -44,10 +44,9 @@ impl Bus {
     }
 
     pub fn read_word_from_port(&mut self, port: u16) -> u16 {
-        match self.ports.word_read_handler(port) {
-            Some(reader) => reader(self, port),
-            _ => panic!("unmapped word read from port {port:#x}"),
-        }
+        let low = self.read_byte_from_port(port) as u16;
+        let high = self.read_byte_from_port(port.wrapping_add(1)) as u16;
+        (high << 8) | low
     }
 
     pub fn read_word_from_memory(&self, address: u32) -> u16 {
@@ -65,9 +64,8 @@ impl Bus {
     }
 
     pub fn write_word_to_port(&mut self, port: u16, value: u16) {
-        if let Some(writer) = self.ports.word_write_handler(port) {
-            writer(self, port, value);
-        }
+        self.write_byte_to_port(port, value as u8);
+        self.write_byte_to_port(port.wrapping_add(1), (value >> 8) as u8);
     }
 
     pub fn write_word_to_memory(&mut self, address: u32, value: u16) {
