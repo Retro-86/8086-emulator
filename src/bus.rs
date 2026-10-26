@@ -1,16 +1,22 @@
 use crate::controller::interrupt::ProgrammableInterruptController;
 use crate::memory::Memory;
 use crate::port::Ports;
+use crate::video::VideoAdapter;
 
 #[derive(Debug)]
 pub struct Bus {
     memory: Memory,
     ports: Ports,
     pic: ProgrammableInterruptController,
+    video_adapter: VideoAdapter,
 }
 
 impl Bus {
-    pub fn new(memory: Memory, pic: ProgrammableInterruptController) -> Self {
+    pub fn new(
+        memory: Memory,
+        pic: ProgrammableInterruptController,
+        video_adapter: VideoAdapter,
+    ) -> Self {
         let mut ports = Ports::new();
 
         ports.register_byte_reader(&[0x20, 0x21], |bus, port_address| {
@@ -21,7 +27,16 @@ impl Bus {
             bus.pic.write(port_address, value);
         });
 
-        Self { memory, ports, pic }
+        ports.register_byte_writer(&[0x3D4, 0x3D5, 0x3D8, 0x3D9], |bus, port, value| {
+            bus.video_adapter.write_port(port, value);
+        });
+
+        Self {
+            memory,
+            ports,
+            pic,
+            video_adapter,
+        }
     }
 
     pub fn request_interrupt(&mut self, line: u8) {

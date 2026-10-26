@@ -8,6 +8,7 @@ use emulator::{
     machine::Machine,
     memory::Memory,
 };
+use emulator::video::{AdapterKind, VideoAdapter};
 
 fn write_bytes(memory: &mut Memory, address: u32, bytes: &[u8]) {
     for (offset, &byte) in bytes.iter().enumerate() {
@@ -41,7 +42,7 @@ fn software_interrupt_and_restore_state() {
     let mut cpu = Cpu::new();
     cpu.reset();
 
-    let bus = Bus::new(memory, Pic::new());
+    let bus = Bus::new(memory, Pic::new(), VideoAdapter::new(AdapterKind::Monochrome));
 
     let mut machine = Machine::new(cpu, bus);
 
@@ -98,7 +99,7 @@ fn hardware_interrupt_reaches_guest_handler() {
     write_bytes(&mut memory, 0x0100, &[0xFB, 0x90, 0xF4]);
     write_bytes(&mut memory, 0x0200, &[0xB8, 0xFE, 0xCA, 0xCF]);
 
-    let mut bus = Bus::new(memory, Pic::new());
+    let mut bus = Bus::new(memory, Pic::new(), VideoAdapter::new(AdapterKind::Monochrome));
 
     bus.write_byte_to_port(0x20, 0x13);
     bus.write_byte_to_port(0x21, 0x20);

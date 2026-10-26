@@ -2,6 +2,7 @@ use emulator::{
     bus::Bus, controller::interrupt::ProgrammableInterruptController, cpu::Cpu, memory::Memory,
 };
 use emulator::machine::Machine;
+use emulator::video::{AdapterKind, VideoAdapter};
 
 #[test]
 fn simple_test() {
@@ -19,8 +20,9 @@ fn simple_test() {
     println!("{:x}", memory.read_word(7));
 
     let pic = ProgrammableInterruptController::new();
-    
-    let bus = Bus::new(memory, pic);
+    let video_adapter = VideoAdapter::new(AdapterKind::Monochrome);
+
+    let bus = Bus::new(memory, pic, video_adapter);
 
     let mut cpu = Cpu::new();
     cpu.reset();
