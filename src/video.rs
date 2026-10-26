@@ -2,21 +2,21 @@
 pub struct MonochromeDisplayAdapter {}
 
 impl MonochromeDisplayAdapter {
-    pub fn write_port(&mut self, port: u16, value: u8) {}
+    pub fn write(&mut self, port: u16, value: u8) {}
 }
 
 #[derive(Debug)]
 pub struct ColorGraphicsAdapter {}
 
 impl ColorGraphicsAdapter {
-    pub fn write_port(&mut self, port: u16, value: u8) {}
+    pub fn write(&mut self, port: u16, value: u8) {}
 }
 
 #[derive(Debug)]
 pub struct VideoGraphicsArray {}
 
 impl VideoGraphicsArray {
-    pub fn write_port(&mut self, port: u16, value: u8) {}
+    pub fn write(&mut self, port: u16, value: u8) {}
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,11 +61,15 @@ impl VideoAdapter {
 }
 
 impl VideoAdapter {
-    pub fn write_port(&mut self, port: u16, value: u8) {
+    pub fn write(&mut self, port: u16, value: u8) {
         match &mut self.adapter {
-            Adapter::Monochrome(adapter) => adapter.write_port(port, value),
-            Adapter::Colored(adapter) => adapter.write_port(port, value),
-            Adapter::Vga(adapter) => adapter.write_port(port, value),
+            Adapter::Monochrome(adapter) => adapter.write(port, value),
+            Adapter::Colored(adapter) => adapter.write(port, value),
+            Adapter::Vga(adapter) => adapter.write(port, value),
         }
+    }
+
+    pub fn read(&self, port: u16) -> u8 {
+        todo!()
     }
 }

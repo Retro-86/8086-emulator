@@ -1,4 +1,5 @@
 use crate::controller::interrupt::ProgrammableInterruptController;
+use crate::controller::serial::Serial;
 use crate::memory::Memory;
 use crate::port::Ports;
 use crate::video::VideoAdapter;
@@ -9,6 +10,7 @@ pub struct Bus {
     ports: Ports,
     pic: ProgrammableInterruptController,
     video_adapter: VideoAdapter,
+    serial: Serial,
 }
 
 impl Bus {
@@ -27,15 +29,27 @@ impl Bus {
             bus.pic.write(port_address, value);
         });
 
-        ports.register_byte_writer(&[0x3D4, 0x3D5, 0x3D8, 0x3D9], |bus, port, value| {
-            bus.video_adapter.write_port(port, value);
+        ports.register_byte_writer(&[0x3B4, 0x3B5, 0x3B8], |bus, port, value| {
+            bus.video_adapter.write(port, value);
         });
+
+        ports.register_byte_reader(&[0x3B5, 0x3BA], |bus, port| {
+            bus.video_adapter.read(port)
+        });
+
+        ports.register_byte_writer(
+            &[0x3F8, 0x3F9, 0x3FA, 0x3FB, 0x3FC, 0x3FD, 0x3FE, 0x3FF],
+            |bus, _port, value| {
+                bus.serial.write(value);
+            },
+        );
 
         Self {
             memory,
             ports,
             pic,
             video_adapter,
+            serial: Serial::new(),
         }
     }
 
