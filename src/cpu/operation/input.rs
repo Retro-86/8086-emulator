@@ -3,12 +3,12 @@ use crate::cpu::Cpu;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::register::WordSharedRegisterKind;
 
-pub fn immediate_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+pub fn from_immediate_port(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     let port = cpu.fetch_byte(bus) as u16;
     input(cpu, bus, size, port);
 }
 
-pub fn port_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
+pub fn from_port(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     let port = cpu.shared_registers.get_word(WordSharedRegisterKind::DX);
     input(cpu, bus, size, port);
 }

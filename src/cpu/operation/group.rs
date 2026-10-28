@@ -6,13 +6,13 @@ use crate::cpu::operation::{
 use crate::cpu::register::ByteSharedRegisterKind;
 use crate::cpu::{AddressingMode, Cpu};
 
-pub fn one(cpu: &mut Cpu, bus: &mut Bus, operand_size: OperandSize) {
+pub fn one(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
 
     let first_operand = addressing_mode.operand(cpu, bus);
 
     let first_operand_value = first_operand.read(cpu, bus, OperandSize::Word);
-    let second_operand_value = match operand_size {
+    let second_operand_value = match size {
         OperandSize::Byte => OperandValue::Word(cpu.fetch_sign_extended_byte(bus)),
         OperandSize::Word => OperandValue::Word(cpu.fetch_word(bus)),
     };

@@ -1,7 +1,7 @@
 use crate::bus::Bus;
 use crate::cpu::{Cpu, register::WordSharedRegisterKind};
 
-pub fn loop_while_not_zero(cpu: &mut Cpu, bus: &mut Bus) {
+pub fn while_not_zero(cpu: &mut Cpu, bus: &mut Bus) {
     let displacement = cpu.fetch_sign_extended_byte(bus);
 
     let counter_value = cpu
@@ -16,7 +16,7 @@ pub fn loop_while_not_zero(cpu: &mut Cpu, bus: &mut Bus) {
     }
 }
 
-pub fn loop_while_equal(cpu: &mut Cpu, bus: &mut Bus) {
+pub fn while_equal(cpu: &mut Cpu, bus: &mut Bus) {
     let displacement = cpu.fetch_sign_extended_byte(bus);
 
     let counter_value = cpu
@@ -31,7 +31,7 @@ pub fn loop_while_equal(cpu: &mut Cpu, bus: &mut Bus) {
     }
 }
 
-pub fn loops(cpu: &mut Cpu, bus: &mut Bus) {
+pub fn counted(cpu: &mut Cpu, bus: &mut Bus) {
     let displacement = cpu.fetch_sign_extended_byte(bus);
 
     let counter_value = cpu

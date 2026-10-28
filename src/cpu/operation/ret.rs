@@ -9,7 +9,7 @@ pub fn near(cpu: &mut Cpu, bus: &mut Bus) {
     cpu.instruction_pointer = pop(cpu, bus);
 }
 
-pub fn near_word(cpu: &mut Cpu, bus: &mut Bus) {
+pub fn near_with_stack_adjustment(cpu: &mut Cpu, bus: &mut Bus) {
     let displacement = cpu.fetch_word(bus);
     near(cpu, bus);
 
@@ -24,7 +24,7 @@ pub fn far(cpu: &mut Cpu, bus: &mut Bus) {
     cpu.segment_registers.set(SegmentRegisterKind::CS, segment);
 }
 
-pub fn far_word(cpu: &mut Cpu, bus: &mut Bus) {
+pub fn far_with_stack_adjustment(cpu: &mut Cpu, bus: &mut Bus) {
     let displacement = cpu.fetch_word(bus);
     far(cpu, bus);
 

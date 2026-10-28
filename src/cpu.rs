@@ -7,10 +7,9 @@ use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
-use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
 use crate::cpu::operation::{
-    add, add_carry, and, call, clear, compare, decrement, group, increment, input, jump, load, mov,
-    or, out, pop, push, ret, set, subtract, subtract_borrow, xor,
+    add, add_carry, and, call, clear, compare, decrement, group, increment, input, jump, load,
+    loops, mov, or, out, pop, push, ret, set, subtract, subtract_borrow, xor,
 };
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
@@ -468,13 +467,13 @@ impl Cpu {
                 mov::immediate_to_register(self, bus, OperandSize::Word, operation_code, 0xB8)
             }
 
-            0xC2 => ret::near_word(self, bus),
+            0xC2 => ret::near_with_stack_adjustment(self, bus),
             0xC3 => ret::near(self, bus),
 
             0xC6 => mov::immediate_to_operand(self, bus, OperandSize::Byte),
             0xC7 => mov::immediate_to_operand(self, bus, OperandSize::Word),
 
-            0xCA => ret::far_word(self, bus),
+            0xCA => ret::near_with_stack_adjustment(self, bus),
             0xCB => ret::far(self, bus),
 
             0xCC => interrupt(self, bus, 3),
@@ -487,14 +486,14 @@ impl Cpu {
             0xD2 => group::two(self, bus, OperandSize::Byte, ShiftSource::Register),
             0xD3 => group::two(self, bus, OperandSize::Word, ShiftSource::Register),
 
-            0xE0 => loop_while_not_zero(self, bus),
-            0xE1 => loop_while_equal(self, bus),
-            0xE2 => loops(self, bus),
+            0xE0 => loops::while_not_zero(self, bus),
+            0xE1 => loops::while_equal(self, bus),
+            0xE2 => loops::counted(self, bus),
 
-            0xE4 => input::immediate_to_register(self, bus, OperandSize::Byte),
-            0xE5 => input::immediate_to_register(self, bus, OperandSize::Word),
-            0xE6 => out::register_to_immediate(self, bus, OperandSize::Byte),
-            0xE7 => out::register_to_immediate(self, bus, OperandSize::Word),
+            0xE4 => input::from_immediate_port(self, bus, OperandSize::Byte),
+            0xE5 => input::from_immediate_port(self, bus, OperandSize::Word),
+            0xE6 => out::to_immediate_port(self, bus, OperandSize::Byte),
+            0xE7 => out::to_immediate_port(self, bus, OperandSize::Word),
 
             0xE8 => call::relative(self, bus),
 
@@ -502,10 +501,10 @@ impl Cpu {
             0xEA => jump::absolute(self, bus),
             0xEB => jump::relative(self, bus, OperandSize::Byte),
 
-            0xEC => input::port_to_register(self, bus, OperandSize::Byte),
-            0xED => input::port_to_register(self, bus, OperandSize::Word),
-            0xEE => out::register_to_port(self, bus, OperandSize::Byte),
-            0xEF => out::register_to_port(self, bus, OperandSize::Word),
+            0xEC => input::from_port(self, bus, OperandSize::Byte),
+            0xED => input::from_port(self, bus, OperandSize::Word),
+            0xEE => out::to_port(self, bus, OperandSize::Byte),
+            0xEF => out::to_port(self, bus, OperandSize::Word),
 
             0xF4 => halt(self),
 
