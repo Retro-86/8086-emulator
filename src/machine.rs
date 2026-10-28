@@ -1,5 +1,7 @@
+use crate::bios;
 use crate::bus::Bus;
 use crate::cpu::Cpu;
+use std::path::Path;
 
 pub struct Machine {
     cpu: Cpu,
@@ -8,10 +10,14 @@ pub struct Machine {
 
 impl Machine {
     pub fn new(cpu: Cpu, bus: Bus) -> Self {
-        Self {
-            cpu,
-            bus
-        }
+        Self { cpu, bus }
+    }
+
+    pub fn initialize(&mut self) {
+        self.cpu.reset();
+
+        let bios_image_path = Path::new("./resources/bios.bin");
+        bios::load(bios_image_path, &mut self.bus).unwrap();
     }
 
     pub fn step(&mut self) {

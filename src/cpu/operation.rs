@@ -27,6 +27,7 @@ pub mod clear;
 pub mod set;
 pub mod input;
 pub mod out;
+pub mod load;
 
 pub enum OperationDirection {
     RegisterToOperand,

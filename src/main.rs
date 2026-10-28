@@ -9,9 +9,12 @@ fn main() {
     let video_adapter = VideoAdapter::new(AdapterKind::Monochrome);
 
     let bus = Bus::new(memory, pic, video_adapter);
+    let cpu = Cpu::new();
 
-    let mut cpu = Cpu::new();
-    cpu.reset();
-
-    let _machine = Machine::new(cpu, bus);
+    let mut machine = Machine::new(cpu, bus);
+    machine.initialize();
+    
+    loop {
+        machine.step();
+    }
 }

@@ -5,13 +5,12 @@ pub mod register;
 
 use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
-use crate::cpu::operation::call::call;
 use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::loops::{loop_while_equal, loop_while_not_zero, loops};
 use crate::cpu::operation::{
-    add, add_carry, and, clear, compare, decrement, group, increment, input, jump, mov, or, out,
-    pop, push, ret, set, subtract, subtract_borrow, xor,
+    add, add_carry, and, call, clear, compare, decrement, group, increment, input, jump, load, mov,
+    or, out, pop, push, ret, set, subtract, subtract_borrow, xor,
 };
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
@@ -451,13 +450,16 @@ impl Cpu {
 
             0x90 => {} //NOP
 
-            0x9A => call(self, bus),
+            0x9A => call::absolute(self, bus),
             0x9B => {} //WAIT
 
             0xA0 => mov::memory_to_register(self, bus, OperandSize::Byte),
             0xA1 => mov::memory_to_register(self, bus, OperandSize::Word),
             0xA2 => mov::register_to_memory(self, bus, OperandSize::Byte),
             0xA3 => mov::register_to_memory(self, bus, OperandSize::Word),
+
+            0xAC => load::string(self, bus, OperandSize::Byte),
+            0xAD => load::string(self, bus, OperandSize::Word),
 
             0xB0..=0xB7 => {
                 mov::immediate_to_register(self, bus, OperandSize::Byte, operation_code, 0xB0)
@@ -494,6 +496,8 @@ impl Cpu {
             0xE6 => out::register_to_immediate(self, bus, OperandSize::Byte),
             0xE7 => out::register_to_immediate(self, bus, OperandSize::Word),
 
+            0xE8 => call::relative(self, bus),
+
             0xE9 => jump::relative(self, bus, OperandSize::Word),
             0xEA => jump::absolute(self, bus),
             0xEB => jump::relative(self, bus, OperandSize::Byte),
@@ -507,6 +511,8 @@ impl Cpu {
 
             0xFA => clear::interrupt_flag(self),
             0xFB => set::interrupt_flag(self),
+
+            0xFC => self.set_flag(FlagKind::D, false),
 
             0xFF => push::word_operand(self, bus),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
