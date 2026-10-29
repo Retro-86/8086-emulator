@@ -1,6 +1,6 @@
 use crate::bus::Bus;
-use crate::cpu::{AddressingMode, Cpu, PointerRegisterKind, SegmentRegisterKind};
 use crate::cpu::operand::OperandSize;
+use crate::cpu::{AddressingMode, Cpu, PointerRegisterKind, SegmentRegisterKind};
 
 pub fn segment_register(cpu: &mut Cpu, bus: &mut Bus, register_kind: SegmentRegisterKind) {
     let register_value = cpu.segment_registers.get(register_kind);
@@ -25,6 +25,11 @@ pub fn word_operand(cpu: &mut Cpu, bus: &mut Bus) {
 
     let operand_value = operand.read(cpu, bus, OperandSize::Word);
     push(cpu, bus, operand_value.as_word());
+}
+
+pub fn flags(cpu: &mut Cpu, bus: &mut Bus) {
+    let flags = cpu.flags;
+    push(cpu, bus, flags);
 }
 
 pub fn push(cpu: &mut Cpu, bus: &mut Bus, value: u16) {

@@ -452,6 +452,9 @@ impl Cpu {
             0x9A => call::absolute(self, bus),
             0x9B => {} //WAIT
 
+            0x9C => push::flags(self, bus),
+            0x9D => pop::flags(self, bus),
+
             0xA0 => mov::memory_to_register(self, bus, OperandSize::Byte),
             0xA1 => mov::memory_to_register(self, bus, OperandSize::Word),
             0xA2 => mov::register_to_memory(self, bus, OperandSize::Byte),
@@ -508,12 +511,13 @@ impl Cpu {
 
             0xF4 => halt(self),
 
+            0xF8 => clear::carry_flag(self),
+            0xF9 => set::carry_flag(self),
             0xFA => clear::interrupt_flag(self),
             0xFB => set::interrupt_flag(self),
+            0xFC => clear::direction_flag(self),
+            0xFD => set::direction_flag(self),
 
-            0xFC => self.set_flag(FlagKind::D, false),
-
-            0xFF => push::word_operand(self, bus),
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }

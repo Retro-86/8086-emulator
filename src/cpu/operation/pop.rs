@@ -20,8 +20,13 @@ pub fn word_operand(cpu: &mut Cpu, bus: &mut Bus) {
     let operand = addressing_mode.operand(cpu, bus);
 
     let value = pop(cpu, bus);
-    
+
     operand.write(cpu, bus, OperandValue::Word(value));
+}
+
+pub fn flags(cpu: &mut Cpu, bus: &mut Bus) {
+    let flags = pop(cpu, bus);
+    cpu.flags = flags;
 }
 
 pub fn pop(cpu: &mut Cpu, bus: &mut Bus) -> u16 {
