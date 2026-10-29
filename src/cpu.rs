@@ -9,7 +9,7 @@ use crate::cpu::operation::group::ShiftSource;
 use crate::cpu::operation::interrupt::{interrupt, interrupt_immediate};
 use crate::cpu::operation::{
     add, add_carry, and, call, clear, compare, decrement, group, increment, input, jump, load,
-    loops, mov, or, out, pop, push, ret, set, subtract, subtract_borrow, xor,
+    loops, mov, or, out, pop, push, ret, set, subtract, subtract_borrow, test, xor,
 };
 use crate::cpu::register::{
     ByteSharedRegisterKind, IndexRegisterKind, IndexRegisters, PointerRegisterKind,
@@ -438,6 +438,9 @@ impl Cpu {
             0x81 => group::one(self, bus, OperandSize::Word),
             0x83 => group::one(self, bus, OperandSize::Byte),
 
+            0x84 => test::register_and_operand(self, bus, OperandSize::Byte),
+            0x85 => test::register_and_operand(self, bus, OperandSize::Word),
+
             0x88 => mov::register_to_operand(self, bus, OperandSize::Byte),
             0x89 => mov::register_to_operand(self, bus, OperandSize::Word),
             0x8A => mov::operand_to_register(self, bus, OperandSize::Byte),
@@ -459,6 +462,9 @@ impl Cpu {
             0xA1 => mov::memory_to_register(self, bus, OperandSize::Word),
             0xA2 => mov::register_to_memory(self, bus, OperandSize::Byte),
             0xA3 => mov::register_to_memory(self, bus, OperandSize::Word),
+
+            0xA8 => test::register_and_immediate(self, bus, OperandSize::Byte),
+            0xA9 => test::register_and_immediate(self, bus, OperandSize::Word),
 
             0xAC => load::string(self, bus, OperandSize::Byte),
             0xAD => load::string(self, bus, OperandSize::Word),

@@ -6,28 +6,29 @@ pub mod add;
 pub mod add_carry;
 pub mod and;
 pub mod call;
+pub mod clear;
 pub mod compare;
 pub mod decrement;
 pub mod group;
 pub mod increment;
+pub mod input;
 pub mod interrupt;
 pub mod jump;
+pub mod load;
 pub mod loops;
 pub mod mov;
 pub mod or;
+pub mod out;
 pub mod pop;
 pub mod push;
 pub mod ret;
 pub mod rotate;
+pub mod set;
 pub mod shift;
 pub mod subtract;
 pub mod subtract_borrow;
+pub mod test;
 pub mod xor;
-pub mod clear;
-pub mod set;
-pub mod input;
-pub mod out;
-pub mod load;
 
 pub enum OperationDirection {
     RegisterToOperand,
