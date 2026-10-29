@@ -1,5 +1,6 @@
 use crate::controller::interrupt::ProgrammableInterruptController;
 use crate::controller::serial::Serial;
+use crate::controller::timer::ProgrammableIntervalTimer;
 use crate::memory::Memory;
 use crate::port::Ports;
 use crate::video::VideoAdapter;
@@ -11,6 +12,7 @@ pub struct Bus {
     pic: ProgrammableInterruptController,
     video_adapter: VideoAdapter,
     serial: Serial,
+    timer: ProgrammableIntervalTimer,
 }
 
 impl Bus {
@@ -33,14 +35,22 @@ impl Bus {
             bus.video_adapter.write(port, value);
         });
 
-        ports.register_byte_reader(&[0x3B5, 0x3BA], |bus, port| {
-            bus.video_adapter.read(port)
-        });
+        ports.register_byte_reader(&[0x3B5, 0x3BA], |bus, port| bus.video_adapter.read(port));
 
         ports.register_byte_writer(
             &[0x3F8, 0x3F9, 0x3FA, 0x3FB, 0x3FC, 0x3FD, 0x3FE, 0x3FF],
             |bus, _port, value| {
                 bus.serial.write(value);
+            },
+        );
+
+        ports.register_byte_reader(&[0x40, 0x41, 0x42], |bus, port| bus.timer.read(port));
+
+        ports.register_byte_writer(
+            &[0x40, 0x41, 0x42, 0x43],
+            |bus, port_address, byte_value| {
+                bus.timer.write(port_address, byte_value);
+                bus.timer_interrupt();
             },
         );
 
@@ -50,11 +60,23 @@ impl Bus {
             pic,
             video_adapter,
             serial: Serial::new(),
+            timer: ProgrammableIntervalTimer::new(),
         }
     }
 
     pub fn request_interrupt(&mut self, line: u8) {
         self.pic.request(line);
+    }
+
+    pub fn advance_timer_ticks(&mut self, elapsed_ticks: u32) {
+        self.timer.advance_ticks(elapsed_ticks);
+        self.timer_interrupt();
+    }
+
+    fn timer_interrupt(&mut self) {
+        if self.timer.take_output_rising_edge(0) {
+            self.request_interrupt(0);
+        }
     }
 
     pub fn acknowledge_interrupt(&mut self) -> Option<u8> {

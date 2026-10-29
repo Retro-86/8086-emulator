@@ -24,6 +24,10 @@ impl Machine {
         self.cpu.step(&mut self.bus);
     }
 
+    pub fn advance_timer_ticks(&mut self, elapsed_ticks: u32) {
+        self.bus.advance_timer_ticks(elapsed_ticks);
+    }
+
     pub fn get_cpu(&self) -> &Cpu {
         &self.cpu
     }
