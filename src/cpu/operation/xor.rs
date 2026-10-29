@@ -9,7 +9,7 @@ pub fn register_to_operand(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
 }
 
 pub fn operand_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
-    register_operand_operation(cpu, bus, size, OperationDirection::RegisterToOperand, xor)
+    register_operand_operation(cpu, bus, size, OperationDirection::OperandToRegister, xor)
 }
 
 pub fn immediate_to_register(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
@@ -29,7 +29,7 @@ pub fn xor(
     source: OperandValue,
     _size: OperandSize,
 ) -> OperandValue {
-    let result = source | destination;
+    let result = source ^ destination;
 
     update_logic_flags(cpu, result);
     
