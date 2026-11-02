@@ -68,6 +68,7 @@ pub struct Channel {
 
     counting_period: u32,
     remaining_ticks: u32,
+    updated_at: u32,
 }
 
 impl Channel {
@@ -253,6 +254,55 @@ impl Channel {
         std::mem::take(&mut self.state.output_rising_edge_pending)
     }
 
+    fn ticks_until_output_rising_edge(&self) -> Option<u32> {
+        if !self.state.active || !self.state.gate {
+            return None;
+        }
+
+        match self.mode {
+            TimerMode::InterruptOnTerminalCount if !self.state.out => Some(self.remaining_ticks),
+            TimerMode::RateGenerator | TimerMode::SquareWaveGenerator => Some(self.remaining_ticks),
+            _ => None,
+        }
+    }
+
+    fn update_to(&mut self, ticks: u32) {
+        let elapsed_ticks = ticks - self.updated_at;
+        self.updated_at = ticks;
+        self.advance_ticks(elapsed_ticks);
+    }
+
+    fn output_level_after(&self, elapsed_ticks: u32) -> bool {
+        if !self.state.active || !self.state.gate || elapsed_ticks == 0 {
+            return self.state.out;
+        }
+
+        match self.mode {
+            TimerMode::InterruptOnTerminalCount => {
+                self.state.out || elapsed_ticks >= self.remaining_ticks
+            }
+            TimerMode::RateGenerator => self.periodic_remaining_after(elapsed_ticks) != 1,
+            TimerMode::SquareWaveGenerator => {
+                self.periodic_remaining_after(elapsed_ticks) > self.counting_period / 2
+            }
+            _ => self.state.out,
+        }
+    }
+
+    fn ticks_until_output_rising_edge_after(&self, elapsed_ticks: u32) -> Option<u32> {
+        let remaining_ticks = self.ticks_until_output_rising_edge()?;
+        if elapsed_ticks < remaining_ticks {
+            return Some(remaining_ticks - elapsed_ticks);
+        }
+
+        match self.mode {
+            TimerMode::RateGenerator | TimerMode::SquareWaveGenerator => {
+                Some(self.periodic_remaining_after(elapsed_ticks))
+            }
+            _ => None,
+        }
+    }
+
     fn advance_ticks(&mut self, elapsed_ticks: u32) {
         if elapsed_ticks == 0 || !self.state.active || !self.state.gate {
             return;
@@ -288,14 +338,8 @@ impl Channel {
     }
 
     fn advance_periodic_count(&mut self, elapsed_ticks: u32) {
-        let period_completed = elapsed_ticks >= self.remaining_ticks;
-        if period_completed {
-            let ticks_after_period = elapsed_ticks - self.remaining_ticks;
-            self.remaining_ticks = self.counting_period - ticks_after_period % self.counting_period;
-            self.state.output_rising_edge_pending = true;
-        } else {
-            self.remaining_ticks -= elapsed_ticks;
-        }
+        self.state.output_rising_edge_pending |= elapsed_ticks >= self.remaining_ticks;
+        self.remaining_ticks = self.periodic_remaining_after(elapsed_ticks);
 
         let output_level = match self.mode {
             TimerMode::RateGenerator => self.remaining_ticks != 1,
@@ -303,6 +347,14 @@ impl Channel {
         };
 
         self.set_output_level(output_level);
+    }
+
+    fn periodic_remaining_after(&self, elapsed_ticks: u32) -> u32 {
+        if elapsed_ticks < self.remaining_ticks {
+            self.remaining_ticks - elapsed_ticks
+        } else {
+            self.counting_period - (elapsed_ticks - self.remaining_ticks) % self.counting_period
+        }
     }
 
     fn update_current_count(&mut self) {
@@ -349,12 +401,14 @@ impl Default for Channel {
             registers: [0; 3],
             counting_period: 0,
             remaining_ticks: 0,
+            updated_at: 0,
         }
     }
 }
 
 pub struct ProgrammableIntervalTimer {
     channels: [Channel; 3],
+    ticks: u32,
 }
 
 impl Debug for ProgrammableIntervalTimer {
@@ -370,19 +424,29 @@ impl ProgrammableIntervalTimer {
         channels[1].state.gate = true;
         channels[2].state.gate = false;
 
-        Self { channels }
+        Self { channels, ticks: 0 }
     }
 
     pub fn read(&mut self, port_address: u16) -> u8 {
         match port_address {
-            0x40..=0x42 => self.channels[(port_address - 0x40) as usize].read(),
+            0x40..=0x42 => {
+                let channel = &mut self.channels[(port_address - 0x40) as usize];
+                if !channel.state.latched {
+                    channel.update_to(self.ticks);
+                }
+                channel.read()
+            }
             _ => unreachable!(),
         }
     }
 
     pub fn write(&mut self, port_address: u16, value: u8) {
         match port_address {
-            0x40..=0x42 => self.channels[(port_address - 0x40) as usize].write(value),
+            0x40..=0x42 => {
+                let channel = &mut self.channels[(port_address - 0x40) as usize];
+                channel.update_to(self.ticks);
+                channel.write(value);
+            }
             0x43 => self.write_control(value),
             _ => unreachable!(),
         }
@@ -390,26 +454,57 @@ impl ProgrammableIntervalTimer {
 
     fn write_control(&mut self, value: u8) {
         let channel_index = usize::from(value >> 6);
-        if channel_index < self.channels.len() {
-            self.channels[channel_index].configure(value);
+        if let Some(channel) = self.channels.get_mut(channel_index) {
+            if value & 0x30 == 0 && channel.state.latched {
+                return;
+            }
+            channel.update_to(self.ticks);
+            channel.configure(value);
         }
     }
 
     pub fn output_level(&self, channel_index: usize) -> bool {
-        self.channels[channel_index].state.out
+        let channel = &self.channels[channel_index];
+        channel.output_level_after(self.ticks - channel.updated_at)
     }
 
     pub fn set_gate(&mut self, channel_index: usize, enabled: bool) {
-        self.channels[channel_index].set_gate(enabled);
+        let channel = &mut self.channels[channel_index];
+        if channel.state.gate != enabled {
+            channel.update_to(self.ticks);
+            channel.set_gate(enabled);
+        }
     }
 
     pub fn take_output_rising_edge(&mut self, channel_index: usize) -> bool {
-        self.channels[channel_index].take_output_rising_edge()
+        let channel = &mut self.channels[channel_index];
+        if channel
+            .ticks_until_output_rising_edge()
+            .is_some_and(|remaining| self.ticks - channel.updated_at >= remaining)
+        {
+            channel.update_to(self.ticks);
+        }
+        channel.take_output_rising_edge()
+    }
+
+    pub fn ticks_until_output_rising_edge(&self, channel_index: usize) -> Option<u32> {
+        let channel = &self.channels[channel_index];
+        channel.ticks_until_output_rising_edge_after(self.ticks - channel.updated_at)
     }
 
     pub fn advance_ticks(&mut self, elapsed_ticks: u32) {
+        if let Some(total) = self.ticks.checked_add(elapsed_ticks) {
+            self.ticks = total;
+        } else {
+            self.rebase_ticks();
+            self.ticks = elapsed_ticks;
+        }
+    }
+
+    fn rebase_ticks(&mut self) {
         for channel in &mut self.channels {
-            channel.advance_ticks(elapsed_ticks);
+            channel.update_to(self.ticks);
+            channel.updated_at = 0;
         }
     }
 }
