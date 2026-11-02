@@ -73,6 +73,14 @@ impl Bus {
         self.timer_interrupt();
     }
 
+    pub fn timer(&self) -> &ProgrammableIntervalTimer {
+        &self.timer
+    }
+
+    pub fn interrupt_controller(&self) -> &ProgrammableInterruptController {
+        &self.pic
+    }
+
     fn timer_interrupt(&mut self) {
         if self.timer.take_output_rising_edge(0) {
             self.request_interrupt(0);
