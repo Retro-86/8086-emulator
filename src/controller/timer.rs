@@ -58,7 +58,7 @@ pub struct State {
 }
 
 #[derive(Copy, Clone)]
-pub struct Channel {
+struct Channel {
     mode: TimerMode,
     access_mode: AccessMode,
     binary_code_decimal_mode: bool,
