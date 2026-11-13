@@ -1,6 +1,6 @@
 const RESET_MODE: u8 = 0x9B;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Channel {
     output: u8,
     input: u8,
@@ -21,6 +21,7 @@ impl Channel {
     }
 }
 
+#[derive(Debug)]
 pub struct ParallelInterfaceController {
     channels: [Channel; 3],
     mode: u8,

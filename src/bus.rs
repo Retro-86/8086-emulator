@@ -1,4 +1,5 @@
 use crate::controller::interrupt::ProgrammableInterruptController;
+use crate::controller::parallel_interface::ParallelInterfaceController;
 use crate::controller::serial::Serial;
 use crate::controller::timer::ProgrammableIntervalTimer;
 use crate::memory::Memory;
@@ -13,6 +14,7 @@ pub struct Bus {
     video_adapter: VideoAdapter,
     serial: Serial,
     timer: ProgrammableIntervalTimer,
+    parallel_interface: ParallelInterfaceController
 }
 
 impl Bus {
@@ -54,6 +56,14 @@ impl Bus {
             },
         );
 
+        ports.register_byte_reader(&[0x60, 0x61, 0x62, 0x63], |bus, port| {
+            bus.parallel_interface.read(port as u8)
+        });
+
+        ports.register_byte_writer(&[0x60, 0x61, 0x62, 0x63], |bus, port, value| {
+            bus.parallel_interface.write(port as u8, value)
+        });
+
         Self {
             memory,
             ports,
@@ -61,6 +71,7 @@ impl Bus {
             video_adapter,
             serial: Serial::new(),
             timer: ProgrammableIntervalTimer::new(),
+            parallel_interface: ParallelInterfaceController::new(),
         }
     }
 
