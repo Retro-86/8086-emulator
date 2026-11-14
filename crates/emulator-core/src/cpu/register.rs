@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 #[derive(Debug)]
 pub struct SharedRegisters {
     bytes: [u8; 8],

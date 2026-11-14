@@ -16,7 +16,7 @@ impl Machine {
     pub fn initialize(&mut self) {
         self.cpu.reset();
 
-        let bios_image_path = Path::new("./resources/bios.bin");
+        let bios_image_path = Path::new("resources/bios.bin");
         bios::load(bios_image_path, &mut self.bus).unwrap();
     }
 

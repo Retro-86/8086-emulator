@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "emulator"
 version = "0.1.0"
+dependencies = [
+ "emulator-core",
+]
+
+[[package]]
+name = "emulator-core"
+version = "0.0.0"

@@ -1,8 +1,8 @@
-use emulator::{
+use emulator_core::machine::Machine;
+use emulator_core::video::{AdapterKind, VideoAdapter};
+use emulator_core::{
     bus::Bus, controller::interrupt::ProgrammableInterruptController, cpu::Cpu, memory::Memory,
 };
-use emulator::machine::Machine;
-use emulator::video::{AdapterKind, VideoAdapter};
 
 #[test]
 fn simple_test() {
@@ -26,7 +26,7 @@ fn simple_test() {
 
     let mut cpu = Cpu::new();
     cpu.reset();
-    
+
     let mut machine = Machine::new(cpu, bus);
 
     for _ in 0..=10 {

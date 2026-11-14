@@ -1,9 +1,16 @@
 [package]
 name = "emulator"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+emulator-core = { path = "crates/emulator-core" }
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/emulator-core",
+]
 
 [profile.release]
 lto = true

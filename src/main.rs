@@ -1,7 +1,9 @@
-use emulator::controller::interrupt::ProgrammableInterruptController;
-use emulator::machine::Machine;
-use emulator::video::{AdapterKind, VideoAdapter};
-use emulator::{bus::Bus, cpu::Cpu, memory::Memory};
+use emulator_core::bus::Bus;
+use emulator_core::controller::interrupt::ProgrammableInterruptController;
+use emulator_core::cpu::Cpu;
+use emulator_core::machine::Machine;
+use emulator_core::memory::Memory;
+use emulator_core::video::{AdapterKind, VideoAdapter};
 
 fn main() {
     let memory = Memory::new();
@@ -13,7 +15,7 @@ fn main() {
 
     let mut machine = Machine::new(cpu, bus);
     machine.initialize();
-    
+
     loop {
         machine.step();
     }
