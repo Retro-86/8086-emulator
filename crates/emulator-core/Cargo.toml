@@ -1,5 +1,6 @@
 [package]
 name = "emulator-core"
-edition = "2021"
+edition.workspace = true
+version = "0.0.5"
 
 [dependencies]

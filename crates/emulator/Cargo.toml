@@ -1,0 +1,7 @@
+[package]
+name = "emulator"
+edition.workspace = true
+version = "0.0.1"
+
+[dependencies]
+emulator-core.workspace = true
