@@ -482,7 +482,7 @@ impl Cpu {
             0xC6 => mov::immediate_to_operand(self, bus, OperandSize::Byte),
             0xC7 => mov::immediate_to_operand(self, bus, OperandSize::Word),
 
-            0xCA => ret::near_with_stack_adjustment(self, bus),
+            0xCA => ret::far_with_stack_adjustment(self, bus),
             0xCB => ret::far(self, bus),
 
             0xCC => interrupt(self, bus, 3),
