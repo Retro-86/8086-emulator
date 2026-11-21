@@ -1,9 +1,10 @@
 use crate::bus::Bus;
-use crate::cpu::operand::{OperandSize, OperandValue};
+use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{
-    add, add_carry, and, compare, or, rotate, shift, subtract, subtract_borrow, xor,
+    add, add_carry, and, compare, decrement, increment, or, push, rotate, shift, subtract,
+    subtract_borrow, xor,
 };
-use crate::cpu::register::ByteSharedRegisterKind;
+use crate::cpu::register::{ByteSharedRegisterKind, SegmentRegisterKind};
 use crate::cpu::{AddressingMode, Cpu};
 
 pub fn one(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
@@ -74,4 +75,61 @@ pub fn two(cpu: &mut Cpu, bus: &mut Bus, operand_size: OperandSize, source: Shif
 
     let result = operation(cpu, first_operand_value, second_operand_value, operand_size);
     first_operand.write(cpu, bus, result);
+}
+
+pub fn four(cpu: &mut Cpu, bus: &mut Bus) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
+    let operand = addressing_mode.operand(cpu, bus);
+
+    match addressing_mode.register {
+        0 => increment::operand(cpu, bus, operand, OperandSize::Byte),
+        1 => decrement::operand(cpu, bus, operand, OperandSize::Byte),
+        _ => unreachable!(),
+    }
+}
+
+pub fn five(cpu: &mut Cpu, bus: &mut Bus) {
+    let mode = AddressingMode::new(cpu.fetch_byte(bus));
+    let operand = mode.operand(cpu, bus);
+
+    match mode.register {
+        0 => increment::operand(cpu, bus, operand, OperandSize::Word),
+        1 => decrement::operand(cpu, bus, operand, OperandSize::Word),
+        2 | 4 => {
+            let target_instruction_pointer = operand.read(cpu, bus, OperandSize::Word).as_word();
+
+            if mode.register == 2 {
+                push::push(cpu, bus, cpu.instruction_pointer);
+            }
+
+            cpu.instruction_pointer = target_instruction_pointer;
+        }
+        3 | 5 => {
+            let Operand::Memory(address) = operand else {
+                panic!("FF /{} requires a memory operand", mode.register);
+            };
+
+            let target_instruction_pointer = bus.read_word_from_memory(address);
+            let target_code_segment = bus.read_word_from_memory(address + 2);
+
+            if mode.register == 3 {
+                push::segment_register(cpu, bus, SegmentRegisterKind::CS);
+                push::push(cpu, bus, cpu.instruction_pointer);
+            }
+
+            cpu.instruction_pointer = target_instruction_pointer;
+            cpu.segment_registers
+                .set(SegmentRegisterKind::CS, target_code_segment);
+        }
+        6 => {
+            let mut value = operand.read(cpu, bus, OperandSize::Word).as_word();
+
+            if matches!(operand, Operand::Register(4)) {
+                value = value.wrapping_sub(2);
+            }
+
+            push::push(cpu, bus, value);
+        }
+        _ => unreachable!(),
+    }
 }

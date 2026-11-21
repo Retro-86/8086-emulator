@@ -5,15 +5,18 @@ use crate::cpu::{Cpu, FlagKind};
 
 pub fn word_register(cpu: &mut Cpu, bus: &mut Bus, base_operation_code: u8, operation_code: u8) {
     let register = Operand::Register(operation_code - base_operation_code);
-
-    let register_value = register.read(cpu, bus, OperandSize::Word);
-
-    let result = decrement(cpu, register_value, OperandSize::Word);
-
-    register.write(cpu, bus, result);
+    operand(cpu, bus, register, OperandSize::Word);
 }
 
-fn decrement(cpu: &mut Cpu, destination: OperandValue, size: OperandSize) -> OperandValue {
+pub fn operand(cpu: &mut Cpu, bus: &mut Bus, target: Operand, size: OperandSize) {
+    let value = target.read(cpu, bus, size);
+
+    let result = decrement(cpu, value, size);
+
+    target.write(cpu, bus, result);
+}
+
+pub fn decrement(cpu: &mut Cpu, destination: OperandValue, size: OperandSize) -> OperandValue {
     let source = match size {
         OperandSize::Byte => OperandValue::Byte(1),
         OperandSize::Word => OperandValue::Word(1),

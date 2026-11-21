@@ -524,6 +524,9 @@ impl Cpu {
             0xFC => clear::direction_flag(self),
             0xFD => set::direction_flag(self),
 
+            0xFE => group::four(self, bus),
+            0xFF => group::five(self, bus),
+
             _ => panic!("Unimplemented instruction 0x{:02X}", operation_code),
         }
     }
