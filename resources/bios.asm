@@ -9,6 +9,7 @@ org 0xE000
 %define PIC_DATA 0x21
 %define PIT_CHANNEL_0 0x40
 %define PIT_CONTROL 0x43
+%define KEYBOARD_PORT 0x60
 
 start:
 	cli
@@ -35,6 +36,12 @@ start:
 	mov ax, 0xF000
 	mov [0x0022], ax
 
+	mov ax, keyboard_interrupt_request
+	mov [0x0024], ax
+
+	mov ax, 0xF000
+	mov [0x0026], ax
+
 	pop ds
 
 	mov al, 0x34
@@ -53,7 +60,7 @@ start:
 	mov al, 0x01
 	out PIC_DATA, al
 
-	 mov al, 0xFE
+	 mov al, 0xFC
 	 out PIC_DATA, al
 
 	 sti
@@ -64,18 +71,11 @@ main_loop:
 
 timer_interrupt_request:
 	push ax
-	push dx
-
-	mov dx, COM1_DATA
-	mov al, '.'
-	out dx, al
 
 	mov al, 0x20
 	out PIC_COMMAND, al
 
-	pop dx
 	pop ax
-
 	iret
 
 print_string:
@@ -101,10 +101,67 @@ print_string:
 
 boot_message: db "BIOS starting...", 0x0D, 0x0A, 0
 
+keyboard_interrupt_request:
+    push ax
+    push bx
+    push dx
+    push ds
+
+    push cs
+    pop ds
+
+    in al, KEYBOARD_PORT
+
+    test al, 0x80
+	jnz .eoi
+
+    cmp al, ascii_table_end - ascii_table
+	jae .eoi
+
+	xor ah, ah
+	mov bx, ax
+	mov al, [ascii_table + bx]
+
+	test al, al
+	jz .eoi
+
+	mov dx, COM1_DATA
+
+	cmp al, 0x0D
+	jne .print
+
+	out dx, al
+	mov al, 0x0A
+
+.print:
+	out dx, al
+
+.eoi:
+	mov al, 0x20
+	out PIC_COMMAND, al
+
+	pop ds
+	pop dx
+	pop bx
+	pop ax
+	iret
+
+ascii_table:
+	db 0, 0
+	db "1234567890-="
+	db 8, 9
+	db "qwertyuiop[]"
+	db 13, 0
+	db "asdfghjkl;'"
+	db 0x60
+	db 0, 0x5C
+	db "zxcvbnm,./"
+	db 0, 0x2A, 0, 0x20
+ascii_table_end:
+
 times 8176 - ($ - start) db 0
 
 reset_vector:
 	jmp 0xF000:start
 
 times 8192 - ($ - start) db 0
-

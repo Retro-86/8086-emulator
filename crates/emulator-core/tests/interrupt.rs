@@ -22,7 +22,7 @@ fn write_reset_jump(memory: &mut Memory) {
 
 fn ax(machine: &Machine) -> u16 {
     machine
-        .get_cpu()
+        .cpu()
         .get_registers()
         .0
         .get_word(WordSharedRegisterKind::AX)
@@ -53,16 +53,16 @@ fn software_interrupt_and_restore_state() {
     machine.step();
     machine.step();
     machine.step();
-    assert!(!machine.get_cpu().can_accept_interrupt());
+    assert!(!machine.cpu().can_accept_interrupt());
 
     machine.step();
     machine.step();
 
     assert_eq!(ax(&machine), 0x1234);
-    assert!(machine.get_cpu().can_accept_interrupt());
+    assert!(machine.cpu().can_accept_interrupt());
     assert_eq!(
         machine
-            .get_cpu()
+            .cpu()
             .get_registers()
             .2
             .get(PointerRegisterKind::SP),
@@ -70,7 +70,7 @@ fn software_interrupt_and_restore_state() {
     );
 
     machine.step();
-    assert!(machine.get_cpu().halted());
+    assert!(machine.cpu().halted());
 }
 
 #[test]

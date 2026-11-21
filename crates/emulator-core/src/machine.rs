@@ -1,5 +1,6 @@
 use crate::bios;
 use crate::bus::Bus;
+use crate::controller::keyboard::KeyboardController;
 use crate::cpu::Cpu;
 use std::path::Path;
 
@@ -46,7 +47,15 @@ impl Machine {
         1
     }
 
-    pub fn get_cpu(&self) -> &Cpu {
+    pub fn cpu(&self) -> &Cpu {
         &self.cpu
+    }
+
+    pub fn bus(&self) -> &Bus {
+        &self.bus
+    }
+
+    pub fn push_scan_code(&mut self, value: u8) {
+        self.bus.push_scan_code(value);
     }
 }

@@ -31,6 +31,6 @@ fn simple_test() {
 
     for _ in 0..=10 {
         machine.step();
-        println!("{:#?}", machine.get_cpu().get_registers());
+        println!("{:#?}", machine.cpu().get_registers());
     }
 }
