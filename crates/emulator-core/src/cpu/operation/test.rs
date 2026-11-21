@@ -28,6 +28,13 @@ pub fn register_and_immediate(cpu: &mut Cpu, bus: &mut Bus, size: OperandSize) {
     test(cpu, register_value, immediate_value);
 }
 
+pub fn operand_and_immediate(cpu: &mut Cpu, bus: &mut Bus, operand: Operand, size: OperandSize) {
+    let operand_value = operand.read(cpu, bus, size);
+    let immediate_value = cpu.fetch_value(bus, size);
+
+    test(cpu, operand_value, immediate_value);
+}
+
 fn test(cpu: &mut Cpu, destination: OperandValue, source: OperandValue) {
     let result = destination & source;
 

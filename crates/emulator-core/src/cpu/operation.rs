@@ -29,6 +29,12 @@ pub mod subtract;
 pub mod subtract_borrow;
 pub mod test;
 pub mod xor;
+pub mod not;
+pub mod negate;
+pub mod multiply;
+pub mod signed_multiply;
+pub mod devide;
+pub mod signed_devide;
 
 pub enum OperationDirection {
     RegisterToOperand,

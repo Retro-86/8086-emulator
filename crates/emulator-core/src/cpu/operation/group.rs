@@ -1,8 +1,8 @@
 use crate::bus::Bus;
 use crate::cpu::operand::{Operand, OperandSize, OperandValue};
 use crate::cpu::operation::{
-    add, add_carry, and, compare, decrement, increment, or, push, rotate, shift, subtract,
-    subtract_borrow, xor,
+    add, add_carry, and, compare, decrement, devide, increment, multiply, negate, not, or, push,
+    rotate, shift, signed_devide, signed_multiply, subtract, subtract_borrow, test, xor,
 };
 use crate::cpu::register::{ByteSharedRegisterKind, SegmentRegisterKind};
 use crate::cpu::{AddressingMode, Cpu};
@@ -75,6 +75,23 @@ pub fn two(cpu: &mut Cpu, bus: &mut Bus, operand_size: OperandSize, source: Shif
 
     let result = operation(cpu, first_operand_value, second_operand_value, operand_size);
     first_operand.write(cpu, bus, result);
+}
+
+pub fn three(cpu: &mut Cpu, bus: &mut Bus, operand_size: OperandSize) {
+    let addressing_mode = AddressingMode::new(cpu.fetch_byte(bus));
+
+    let operand = addressing_mode.operand(cpu, bus);
+
+    match addressing_mode.register {
+        0 | 1 => test::operand_and_immediate(cpu, bus, operand, operand_size),
+        2 => not::operand(cpu, bus, operand, operand_size),
+        3 => negate::operand(cpu, bus, operand, operand_size),
+        4 => multiply::operand(cpu, bus, operand, operand_size),
+        5 => signed_multiply::operand(cpu, bus, operand, operand_size),
+        6 => devide::operand(cpu, bus, operand, operand_size),
+        7 => signed_devide::operand(cpu, bus, operand, operand_size),
+        _ => unreachable!(),
+    }
 }
 
 pub fn four(cpu: &mut Cpu, bus: &mut Bus) {

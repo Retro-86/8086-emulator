@@ -517,6 +517,9 @@ impl Cpu {
 
             0xF4 => halt(self),
 
+            0xF6 => group::three(self, bus, OperandSize::Byte),
+            0xF7 => group::three(self, bus, OperandSize::Word),
+
             0xF8 => clear::carry_flag(self),
             0xF9 => set::carry_flag(self),
             0xFA => clear::interrupt_flag(self),

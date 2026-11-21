@@ -1,6 +1,6 @@
 use crate::bus::Bus;
 use crate::cpu::Cpu;
-use std::ops::{Add, BitAnd, BitOr, BitXor, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Sub};
 
 #[derive(Copy, Clone)]
 pub enum OperandValue {
@@ -31,6 +31,13 @@ impl OperandValue {
         match self {
             Self::Byte(value) => value & 0x80 != 0,
             Self::Word(value) => value & 0x8000 != 0,
+        }
+    }
+
+    pub fn zero(size: OperandSize) -> Self {
+        match size {
+            OperandSize::Byte => OperandValue::Byte(0),
+            OperandSize::Word => OperandValue::Word(0),
         }
     }
 }
@@ -85,6 +92,17 @@ impl Operand {
     }
 }
 
+impl Not for OperandValue {
+    type Output = OperandValue;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Self::Byte(value) => Self::Byte(!value),
+            Self::Word(value) => Self::Word(!value),
+        }
+    }
+}
+
 macro_rules! impl_operand_op {
     ($trait:ident, $method:ident, $op:ident) => {
         impl $trait for OperandValue {
@@ -105,3 +123,5 @@ impl_operand_op!(Sub, sub, wrapping_sub);
 impl_operand_op!(BitOr, bitor, bitor);
 impl_operand_op!(BitAnd, bitand, bitand);
 impl_operand_op!(BitXor, bitxor, bitxor);
+impl_operand_op!(Mul, mul, wrapping_mul);
+impl_operand_op!(Div, div, wrapping_div);
