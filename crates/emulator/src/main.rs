@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::sync::mpsc;
 use std::{io, thread};
-
+use std::path::Path;
 use emulator_core::bus::Bus;
 use emulator_core::controller::interrupt::ProgrammableInterruptController;
 use emulator_core::cpu::Cpu;
@@ -18,7 +18,9 @@ fn main() {
     let cpu = Cpu::new();
 
     let mut machine = Machine::new(cpu, bus);
-    machine.initialize();
+
+    let bios_image_path = Path::new("resources/bios.bin");
+    machine.initialize(bios_image_path);
 
     let (sender, receiver) = mpsc::channel::<u8>();
 
