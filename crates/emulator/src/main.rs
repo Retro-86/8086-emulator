@@ -14,7 +14,9 @@ fn main() {
     let pic = ProgrammableInterruptController::new();
     let video_adapter = VideoAdapter::new(AdapterKind::Monochrome);
 
-    let bus = Bus::new(memory, pic, video_adapter);
+    let mut bus = Bus::new(memory, pic, video_adapter);
+    bus.insert_floppy_image(Path::new("resources/boot.img")).unwrap();
+
     let cpu = Cpu::new();
 
     let mut machine = Machine::new(cpu, bus);

@@ -1,0 +1,1 @@
+nasm -I bios/ -f bin bios/bios.asm -o bios.bin

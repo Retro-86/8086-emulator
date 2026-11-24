@@ -1,3 +1,6 @@
+use std::io;
+use std::path::Path;
+use crate::controller::floppy_disk::FloppyDiskController;
 use crate::controller::interrupt::ProgrammableInterruptController;
 use crate::controller::keyboard::KeyboardController;
 use crate::controller::serial::Serial;
@@ -14,7 +17,8 @@ pub struct Bus {
     video_adapter: VideoAdapter,
     serial: Serial,
     timer: ProgrammableIntervalTimer,
-    keyboard_controller: KeyboardController
+    keyboard_controller: KeyboardController,
+    floppy_disk_controller: FloppyDiskController
 }
 
 impl Bus {
@@ -60,6 +64,14 @@ impl Bus {
             bus.keyboard_controller.read_data(&mut bus.pic)
         });
 
+        ports.register_byte_reader(&[0x3F4, 0x3F5], |bus, port| {
+            bus.floppy_disk_controller.read(port)
+        });
+
+        ports.register_byte_writer(&[0x3F2, 0x3F5], |bus, port, value| {
+            bus.floppy_disk_controller.write(port, value);
+        });
+
         Self {
             memory,
             ports,
@@ -67,7 +79,8 @@ impl Bus {
             video_adapter,
             serial: Serial::new(),
             timer: ProgrammableIntervalTimer::new(),
-            keyboard_controller: KeyboardController::new()
+            keyboard_controller: KeyboardController::new(),
+            floppy_disk_controller: FloppyDiskController::new()
         }
     }
 
@@ -141,5 +154,9 @@ impl Bus {
     pub fn push_scan_code(&mut self, scan_code: u8) {
         self.keyboard_controller
             .push_scan_code(scan_code, &mut self.pic);
+    }
+
+    pub fn insert_floppy_image(&mut self, path: &Path) -> io::Result<()> {
+        self.floppy_disk_controller.insert(path)
     }
 }

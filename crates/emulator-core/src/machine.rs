@@ -1,6 +1,5 @@
 use crate::bios;
 use crate::bus::Bus;
-use crate::controller::keyboard::KeyboardController;
 use crate::cpu::Cpu;
 use std::path::Path;
 
