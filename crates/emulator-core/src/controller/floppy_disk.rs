@@ -149,7 +149,7 @@ pub struct FloppyDiskController {
 }
 
 impl FloppyDiskController {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             disk: None,
             digital_output_register: 0,
